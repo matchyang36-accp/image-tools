@@ -13,6 +13,7 @@ import {
   Upload, Download, RefreshCw, ImagePlus,
   Scissors, ClipboardPaste, Sparkles, Check,
   Loader2, ArrowLeftRight, AlertCircle, Lock, HelpCircle,
+  Palette, Wand2, Pen, Eraser, Undo2, Check as CheckIcon,
 } from 'lucide-react'
 import { removeBackground } from '@imgly/background-removal'
 
@@ -77,6 +78,15 @@ export function RemoveBg() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const sliderRef = useRef<HTMLDivElement>(null)
   const isDraggingRef = useRef(false)
+
+  // ───── 后续处理状态 ─────
+  const [editMode, setEditMode] = useState<'preview' | 'retouch'>('preview')
+  const [retouchBrushSize, setRetouchBrushSize] = useState(20)
+  const [retouchBrushMode, setRetouchBrushMode] = useState<'erase' | 'restore'>('erase')
+  const retouchCanvasRef = useRef<HTMLCanvasElement>(null)
+  const retouchDataRef = useRef<ImageData | null>(null)
+  const retouchHistoryRef = useRef<Uint8Array[]>([])
+  const isRetouchingRef = useRef(false)
 
   // ───── 辅助函数 ─────
   const clampZoom = (v: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, v))
@@ -264,6 +274,7 @@ export function RemoveBg() {
     setErrorMsg('')
     setCompareMode('result')
     setSliderPos(50)
+    setEditMode('preview')
     fitToCanvas()
   }
 
@@ -275,6 +286,155 @@ export function RemoveBg() {
     a.download = `${baseName}-nobg.png`
     a.click()
   }
+
+  // ───── 后续处理：通用加载图片 ─────
+  const loadImage = (url: string): Promise<HTMLImageElement> => new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = reject
+    img.src = url
+  })
+
+  // 更新结果图（释放旧 blob）
+  const updateResult = useCallback((newUrl: string) => {
+    if (result?.result) URL.revokeObjectURL(result.result)
+    setResult((prev) => prev ? { ...prev, result: newUrl } : null)
+  }, [result])
+
+  // ───── 后续处理：白底图 ─────
+  const applyWhiteBg = useCallback(async () => {
+    if (!result?.result) return
+    const img = await loadImage(result.result)
+    const canvas = document.createElement('canvas')
+    canvas.width = img.naturalWidth
+    canvas.height = img.naturalHeight
+    const ctx = canvas.getContext('2d')!
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.drawImage(img, 0, 0)
+    const blob = await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b!), 'image/png'))
+    updateResult(URL.createObjectURL(blob))
+  }, [result, updateResult])
+
+  // ───── 后续处理：变清晰（Unsharp Mask） ─────
+  const applyEnhance = useCallback(async () => {
+    if (!result?.result) return
+    const img = await loadImage(result.result)
+    const w = img.naturalWidth, h = img.naturalHeight
+    const canvas = document.createElement('canvas')
+    canvas.width = w; canvas.height = h
+    const ctx = canvas.getContext('2d')!
+    ctx.drawImage(img, 0, 0)
+    const src = ctx.getImageData(0, 0, w, h)
+    const dst = ctx.createImageData(w, h)
+
+    // 高斯模糊（半径 1）
+    const kernel = [1, 2, 1, 2, 4, 2, 1, 2, 1]
+    const gauss = new Uint8ClampedArray(src.data.length)
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        let r = 0, g = 0, b = 0, a = 0, weight = 0
+        for (let ky = -1; ky <= 1; ky++) {
+          for (let kx = -1; kx <= 1; kx++) {
+            const ny = y + ky, nx = x + kx
+            if (ny < 0 || ny >= h || nx < 0 || nx >= w) continue
+            const idx = (ny * w + nx) * 4
+            const wgt = kernel[(ky + 1) * 3 + (kx + 1)]
+            r += src.data[idx] * wgt; g += src.data[idx + 1] * wgt; b += src.data[idx + 2] * wgt; a += src.data[idx + 3] * wgt
+            weight += wgt
+          }
+        }
+        const i = (y * w + x) * 4
+        gauss[i] = r / weight; gauss[i + 1] = g / weight; gauss[i + 2] = b / weight; gauss[i + 3] = a / weight
+      }
+    }
+
+    // Unsharp mask: result = original + (original - blur) * amount
+    const amount = 0.6
+    for (let i = 0; i < src.data.length; i += 4) {
+      dst.data[i] = Math.min(255, Math.max(0, src.data[i] + (src.data[i] - gauss[i]) * amount))
+      dst.data[i + 1] = Math.min(255, Math.max(0, src.data[i + 1] + (src.data[i + 1] - gauss[i + 1]) * amount))
+      dst.data[i + 2] = Math.min(255, Math.max(0, src.data[i + 2] + (src.data[i + 2] - gauss[i + 2]) * amount))
+      dst.data[i + 3] = src.data[i + 3]
+    }
+    ctx.putImageData(dst, 0, 0)
+    const blob = await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b!), 'image/png'))
+    updateResult(URL.createObjectURL(blob))
+  }, [result, updateResult])
+
+  // ───── 后续处理：手动精修 ─────
+  const startRetouch = useCallback(() => {
+    setEditMode('retouch')
+  }, [])
+
+  // canvas 挂载后初始化精修数据
+  useEffect(() => {
+    if (editMode !== 'retouch' || !result?.result || !retouchCanvasRef.current) return
+    const canvas = retouchCanvasRef.current
+    const img = new Image()
+    img.onload = () => {
+      canvas.width = Math.min(img.naturalWidth, 2048)
+      const scale = canvas.width / img.naturalWidth
+      canvas.height = Math.round(img.naturalHeight * scale)
+      const ctx = canvas.getContext('2d')!
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      retouchDataRef.current = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      retouchHistoryRef.current = []
+    }
+    img.src = result.result
+  }, [editMode, result])
+
+  const doPaint = useCallback((clientX: number, clientY: number) => {
+    const canvas = retouchCanvasRef.current
+    if (!canvas || !retouchDataRef.current) return
+    const rect = canvas.getBoundingClientRect()
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+    const x = Math.floor((clientX - rect.left) * scaleX)
+    const y = Math.floor((clientY - rect.top) * scaleY)
+    const { data, width, height } = retouchDataRef.current
+    const r = retouchBrushSize
+
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (dx * dx + dy * dy > r * r) continue
+        const nx = x + dx, ny = y + dy
+        if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue
+        const pi = (ny * width + nx) * 4
+        data[pi + 3] = retouchBrushMode === 'erase' ? 0 : 255
+      }
+    }
+    canvas.getContext('2d')!.putImageData(retouchDataRef.current, 0, 0)
+  }, [retouchBrushSize, retouchBrushMode])
+
+  const startRetouchPaint = useCallback((clientX: number, clientY: number) => {
+    if (!retouchDataRef.current) return
+    const { data, width, height } = retouchDataRef.current
+    const prevAlpha = new Uint8Array(width * height)
+    for (let i = 0; i < prevAlpha.length; i++) prevAlpha[i] = data[i * 4 + 3]
+    retouchHistoryRef.current.push(prevAlpha)
+    doPaint(clientX, clientY)
+  }, [doPaint])
+
+  const undoRetouch = useCallback(() => {
+    if (retouchHistoryRef.current.length === 0 || !retouchDataRef.current || !retouchCanvasRef.current) return
+    const prevAlpha = retouchHistoryRef.current.pop()!
+    const { data, width } = retouchDataRef.current
+    for (let i = 0; i < prevAlpha.length; i++) data[i * 4 + 3] = prevAlpha[i]
+    retouchCanvasRef.current.getContext('2d')!.putImageData(retouchDataRef.current, 0, 0)
+  }, [])
+
+  const finishRetouch = useCallback(async () => {
+    const canvas = retouchCanvasRef.current
+    if (!canvas) return
+    const blob = await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b!), 'image/png'))
+    updateResult(URL.createObjectURL(blob))
+    setEditMode('preview')
+  }, [updateResult])
+
+  const cancelRetouch = useCallback(() => {
+    setEditMode('preview')
+  }, [])
 
   // 对比滑块拖拽逻辑
   const handleSliderMove = useCallback((clientX: number) => {
@@ -423,88 +583,143 @@ export function RemoveBg() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <Badge className="bg-green-50 text-green-700 border border-green-200 hover:bg-green-50">
-                      <Check className="w-3 h-3 mr-1" />
-                      处理完成
+                    <Badge className={editMode === 'retouch' ? 'bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-50' : 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-50'}>
+                      {editMode === 'retouch' ? <Pen className="w-3 h-3 mr-1" /> : <Check className="w-3 h-3 mr-1" />}
+                      {editMode === 'retouch' ? '手动精修' : '处理完成'}
                     </Badge>
                     <span className="text-xs text-slate-400 truncate max-w-[200px]">{result.fileName}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {/* 缩放工具栏 */}
-                    <div className="flex items-stretch bg-white rounded-lg border border-slate-200 overflow-hidden">
-                      <button
-                        onClick={() => zoomBy(-ZOOM_STEP)}
-                        disabled={zoom <= ZOOM_MIN}
-                        className="w-8 h-8 flex items-center justify-center text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-30 border-r border-slate-200"
-                        title="缩小"
-                      >
-                        −
-                      </button>
-                      <span className="w-12 h-8 flex items-center justify-center text-xs text-slate-600 bg-slate-50 border-r border-slate-200 select-none">
-                        {Math.round(zoom * 100)}%
-                      </span>
-                      <button
-                        onClick={() => zoomBy(ZOOM_STEP)}
-                        disabled={zoom >= ZOOM_MAX}
-                        className="w-8 h-8 flex items-center justify-center text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-30 border-r border-slate-200"
-                        title="放大"
-                      >
-                        +
-                      </button>
-                      <button
-                        onClick={fitToCanvas}
-                        className="w-8 h-8 flex items-center justify-center text-sm text-slate-500 hover:bg-slate-50 transition-colors"
-                        title="适应画布"
-                      >
-                        ⊡
-                      </button>
-                    </div>
-                    {/* 查看模式切换 */}
-                    <div className="flex bg-slate-100 rounded-lg p-0.5">
-                      {([
-                        { key: 'result', label: '结果' },
-                        { key: 'original', label: '原图' },
-                        { key: 'split', label: '对比' },
-                      ] as const).map((opt) => (
-                        <button
-                          key={opt.key}
-                          onClick={() => setCompareMode(opt.key)}
-                          className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                            compareMode === opt.key
-                              ? 'bg-white text-slate-900 shadow-sm'
-                              : 'text-slate-500 hover:text-slate-700'
-                          }`}
-                        >
-                          {opt.label}
+                  {editMode === 'retouch' ? (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {/* 画笔模式 */}
+                      <div className="flex bg-slate-100 rounded-lg p-0.5">
+                        <button onClick={() => setRetouchBrushMode('erase')} className={`flex items-center gap-1 px-3 py-1 text-xs rounded-md transition-colors ${retouchBrushMode === 'erase' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>
+                          <Eraser className="w-3.5 h-3.5" />擦除
                         </button>
-                      ))}
+                        <button onClick={() => setRetouchBrushMode('restore')} className={`flex items-center gap-1 px-3 py-1 text-xs rounded-md transition-colors ${retouchBrushMode === 'restore' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>
+                          <Undo2 className="w-3.5 h-3.5" />恢复
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-slate-500">大小</span>
+                        <input type="range" min={2} max={100} value={retouchBrushSize} onChange={(e) => setRetouchBrushSize(Number(e.target.value))} className="w-20 accent-violet-500" />
+                        <span className="text-xs text-slate-400 w-8">{retouchBrushSize}px</span>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={undoRetouch} disabled={retouchHistoryRef.current.length === 0} className="text-xs gap-1 px-2">
+                        <Undo2 className="w-3.5 h-3.5" />撤销
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={cancelRetouch} className="text-xs px-2">取消</Button>
+                      <Button size="sm" onClick={finishRetouch} className="text-xs gap-1 bg-violet-600 hover:bg-violet-700 px-2">
+                        <CheckIcon className="w-3.5 h-3.5" />完成
+                      </Button>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      {/* 缩放工具栏 */}
+                      <div className="flex items-stretch bg-white rounded-lg border border-slate-200 overflow-hidden">
+                        <button
+                          onClick={() => zoomBy(-ZOOM_STEP)}
+                          disabled={zoom <= ZOOM_MIN}
+                          className="w-8 h-8 flex items-center justify-center text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-30 border-r border-slate-200"
+                          title="缩小"
+                        >
+                          −
+                        </button>
+                        <span className="w-12 h-8 flex items-center justify-center text-xs text-slate-600 bg-slate-50 border-r border-slate-200 select-none">
+                          {Math.round(zoom * 100)}%
+                        </span>
+                        <button
+                          onClick={() => zoomBy(ZOOM_STEP)}
+                          disabled={zoom >= ZOOM_MAX}
+                          className="w-8 h-8 flex items-center justify-center text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-30 border-r border-slate-200"
+                          title="放大"
+                        >
+                          +
+                        </button>
+                        <button
+                          onClick={fitToCanvas}
+                          className="w-8 h-8 flex items-center justify-center text-sm text-slate-500 hover:bg-slate-50 transition-colors"
+                          title="适应画布"
+                        >
+                          ⊡
+                        </button>
+                      </div>
+                      {/* 查看模式切换 */}
+                      <div className="flex bg-slate-100 rounded-lg p-0.5">
+                        {([
+                          { key: 'result', label: '结果' },
+                          { key: 'original', label: '原图' },
+                          { key: 'split', label: '对比' },
+                        ] as const).map((opt) => (
+                          <button
+                            key={opt.key}
+                            onClick={() => setCompareMode(opt.key)}
+                            className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                              compareMode === opt.key
+                                ? 'bg-white text-slate-900 shadow-sm'
+                                : 'text-slate-500 hover:text-slate-700'
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* Image preview — GPU 加速缩放 */}
-                <div
-                  ref={viewportRef}
-                  className="relative rounded-lg overflow-hidden min-h-[400px] flex items-center justify-center select-none touch-none"
-                  style={{
-                    backgroundImage: `linear-gradient(45deg, #e2e8f0 25%, transparent 25%),
-                      linear-gradient(-45deg, #e2e8f0 25%, transparent 25%),
-                      linear-gradient(45deg, transparent 75%, #e2e8f0 75%),
-                      linear-gradient(-45deg, transparent 75%, #e2e8f0 75%)`,
-                    backgroundSize: '20px 20px',
-                    backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px',
-                    cursor: zoom > 1 ? (isPanningRef.current ? 'grabbing' : 'grab') : 'zoom-in',
-                  }}
-                  onWheel={handleWheel}
-                  onMouseDown={(e) => {
-                    if (compareMode !== 'split') {
-                      e.preventDefault()
-                      handlePanStart(e.clientX, e.clientY)
-                    }
-                  }}
-                  onDoubleClick={fitToCanvas}
-                  title={zoom > 1 ? '双击适应画布 · 拖拽平移 · 滚轮缩放' : '滚轮缩放 · 按钮缩放 · 双击还原'}
-                >
+                {editMode === 'retouch' ? (
+                  <div
+                    className="relative rounded-lg overflow-hidden min-h-[400px] flex items-center justify-center select-none touch-none border border-slate-200"
+                    style={{
+                      backgroundImage: `linear-gradient(45deg, #e2e8f0 25%, transparent 25%),
+                        linear-gradient(-45deg, #e2e8f0 25%, transparent 25%),
+                        linear-gradient(45deg, transparent 75%, #e2e8f0 75%),
+                        linear-gradient(-45deg, transparent 75%, #e2e8f0 75%)`,
+                      backgroundSize: '20px 20px',
+                      backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px',
+                    }}
+                  >
+                    <canvas
+                      ref={retouchCanvasRef}
+                      className="max-w-full max-h-[60vh] object-contain"
+                      style={{ cursor: 'crosshair' }}
+                      onMouseDown={(e) => { isRetouchingRef.current = true; startRetouchPaint(e.clientX, e.clientY) }}
+                      onMouseMove={(e) => { if (isRetouchingRef.current) doPaint(e.clientX, e.clientY) }}
+                      onMouseUp={() => { isRetouchingRef.current = false }}
+                      onMouseLeave={() => { isRetouchingRef.current = false }}
+                      onTouchStart={(e) => { e.preventDefault(); isRetouchingRef.current = true; if (e.touches[0]) startRetouchPaint(e.touches[0].clientX, e.touches[0].clientY) }}
+                      onTouchMove={(e) => { e.preventDefault(); if (isRetouchingRef.current && e.touches[0]) doPaint(e.touches[0].clientX, e.touches[0].clientY) }}
+                      onTouchEnd={() => { isRetouchingRef.current = false }}
+                    />
+                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/55 text-white/90 text-xs px-2.5 py-1 rounded-full pointer-events-none z-20 backdrop-blur-sm">
+                      擦除=透明 / 恢复=还原 / 完成后点击右上角「完成」
+                    </div>
+                  </div>
+                ) : (
+                  <>{/* Image preview — GPU 加速缩放 */}
+                  <div
+                    ref={viewportRef}
+                    className="relative rounded-lg overflow-hidden min-h-[400px] flex items-center justify-center select-none touch-none"
+                    style={{
+                      backgroundImage: `linear-gradient(45deg, #e2e8f0 25%, transparent 25%),
+                        linear-gradient(-45deg, #e2e8f0 25%, transparent 25%),
+                        linear-gradient(45deg, transparent 75%, #e2e8f0 75%),
+                        linear-gradient(-45deg, transparent 75%, #e2e8f0 75%)`,
+                      backgroundSize: '20px 20px',
+                      backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px',
+                      cursor: zoom > 1 ? (isPanningRef.current ? 'grabbing' : 'grab') : 'zoom-in',
+                    }}
+                    onWheel={handleWheel}
+                    onMouseDown={(e) => {
+                      if (compareMode !== 'split') {
+                        e.preventDefault()
+                        handlePanStart(e.clientX, e.clientY)
+                      }
+                    }}
+                    onDoubleClick={fitToCanvas}
+                    title={zoom > 1 ? '双击适应画布 · 拖拽平移 · 滚轮缩放' : '滚轮缩放 · 按钮缩放 · 双击还原'}
+                  >
                   {compareMode === 'split' ? (
                     <div
                       ref={sliderRef}
@@ -582,14 +797,32 @@ export function RemoveBg() {
                     </div>
                   )}
                 </div>
+                </>)}
               </CardContent>
             </Card>
 
+            {/* 后续处理工具栏 */}
+            {editMode === 'preview' && (
+              <div className="flex items-center justify-center gap-2 flex-wrap">
+                <Button variant="outline" size="sm" onClick={applyWhiteBg} className="gap-1.5">
+                  <Palette className="w-3.5 h-3.5" />白底图
+                </Button>
+                <Button variant="outline" size="sm" onClick={applyEnhance} className="gap-1.5">
+                  <Wand2 className="w-3.5 h-3.5" />变清晰
+                </Button>
+                <Button variant="outline" size="sm" onClick={startRetouch} className="gap-1.5">
+                  <Pen className="w-3.5 h-3.5" />手动精修
+                </Button>
+              </div>
+            )}
+
             <div className="flex items-center justify-center gap-3">
-              <Button onClick={handleDownload} className="gap-2">
-                <Download className="w-4 h-4" />
-                下载透明 PNG
-              </Button>
+              {editMode === 'preview' && (
+                <Button onClick={handleDownload} className="gap-2">
+                  <Download className="w-4 h-4" />
+                  下载透明 PNG
+                </Button>
+              )}
               <Button variant="outline" onClick={handleReset} className="gap-2">
                 <RefreshCw className="w-4 h-4" />
                 重新上传
@@ -597,7 +830,7 @@ export function RemoveBg() {
             </div>
 
             <p className="text-center text-xs text-slate-400">
-              下载为透明 PNG，可直接用于电商上架、海报设计等场景
+              {editMode === 'retouch' ? '手动精修模式下，擦除区域将变为透明，恢复区域还原为原始像素' : '下载为透明 PNG，可直接用于电商上架、海报设计等场景'}
             </p>
           </div>
         )}
