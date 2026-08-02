@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
   Image, Scissors, Sparkles, Upload, Zap, ArrowRight,
-  Check, Star, ShieldCheck, TrendingUp,
+  Check, Star, ShieldCheck, TrendingUp, Pen,
 } from 'lucide-react'
 
 const tools = [
@@ -23,9 +23,9 @@ const tools = [
     title: 'AI 白底图',
     description: '自动生成电商白底图，适配淘宝/京东/拼多多',
     icon: Image,
-    href: '#',
-    badge: '即将上线',
-    badgeVariant: 'soon' as const,
+    href: '/white-background',
+    badge: '新上线',
+    badgeVariant: 'new' as const,
     color: 'from-blue-500 to-cyan-500',
   },
   {
@@ -33,9 +33,9 @@ const tools = [
     title: '图片变清晰',
     description: 'AI 提升分辨率，修复模糊、噪点和压缩痕迹，还原高清画质',
     icon: Sparkles,
-    href: '#',
-    badge: '即将上线',
-    badgeVariant: 'soon' as const,
+    href: '/enhance',
+    badge: '新上线',
+    badgeVariant: 'new' as const,
     color: 'from-amber-500 to-orange-500',
   },
   {
@@ -43,10 +43,20 @@ const tools = [
     title: '去水印',
     description: '智能识别并消除水印、文字、日期等不需要的元素',
     icon: Zap,
-    href: '#',
-    badge: '即将上线',
-    badgeVariant: 'soon' as const,
+    href: '/remove-watermark',
+    badge: '新上线',
+    badgeVariant: 'new' as const,
     color: 'from-emerald-500 to-green-600',
+  },
+  {
+    id: 'retouch',
+    title: '手动精修',
+    description: '画笔模式精细修图，橡皮檫去除边缘瑕疵，恢复笔还原细节',
+    icon: Pen,
+    href: '/retouch',
+    badge: '新上线',
+    badgeVariant: 'new' as const,
+    color: 'from-rose-500 to-pink-600',
   },
 ]
 
@@ -215,6 +225,8 @@ export function Home() {
                         className={`text-xs font-medium ${
                           tool.badgeVariant === 'hot'
                             ? 'bg-red-50 text-red-600 border-red-200'
+                            : tool.badgeVariant === 'new'
+                            ? 'bg-green-50 text-green-600 border-green-200'
                             : 'bg-slate-100 text-slate-500 border-slate-200'
                         }`}
                       >

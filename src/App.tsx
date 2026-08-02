@@ -2,7 +2,11 @@ import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
 import { Header } from '@/components/Header'
 import { Home } from '@/pages/Home'
 import { RemoveBg } from '@/pages/RemoveBg'
-import { Scissors, Sparkles, ShieldCheck } from 'lucide-react'
+import { WhiteBg } from '@/pages/WhiteBg'
+import { Enhance } from '@/pages/Enhance'
+import { Watermark } from '@/pages/Watermark'
+import { Retouch } from '@/pages/Retouch'
+import { Scissors, Sparkles, ShieldCheck, Image, Zap, Pen } from 'lucide-react'
 import './App.css'
 
 function Footer() {
@@ -37,9 +41,26 @@ function Footer() {
                   <Scissors className="w-3.5 h-3.5" /> AI 智能抠图
                 </Link>
               </li>
-              <li className="text-slate-400">AI 白底图（即将上线）</li>
-              <li className="text-slate-400">图片变清晰（即将上线）</li>
-              <li className="text-slate-400">去水印（即将上线）</li>
+              <li>
+                <Link to="/white-background" className="hover:text-blue-600 transition-colors flex items-center gap-1.5">
+                  <Image className="w-3.5 h-3.5" /> AI 白底图
+                </Link>
+              </li>
+              <li>
+                <Link to="/enhance" className="hover:text-amber-600 transition-colors flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" /> 图片变清晰
+                </Link>
+              </li>
+              <li>
+                <Link to="/remove-watermark" className="hover:text-emerald-600 transition-colors flex items-center gap-1.5">
+                  <Zap className="w-3.5 h-3.5" /> 去水印
+                </Link>
+              </li>
+              <li>
+                <Link to="/retouch" className="hover:text-purple-600 transition-colors flex items-center gap-1.5">
+                  <Pen className="w-3.5 h-3.5" /> 手动精修
+                </Link>
+              </li>
             </ul>
           </div>
 
@@ -85,6 +106,10 @@ function App() {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/remove-background" element={<RemoveBg />} />
+            <Route path="/white-background" element={<WhiteBg />} />
+            <Route path="/enhance" element={<Enhance />} />
+            <Route path="/remove-watermark" element={<Watermark />} />
+            <Route path="/retouch" element={<Retouch />} />
           </Routes>
         </main>
         <Footer />

@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import {
   Image, MessageSquare, Sparkles, ChevronDown,
-  Scissors, Zap, Star, Clock, Gift,
+  Scissors, Zap, Star, Clock, Gift, Pen,
 } from 'lucide-react'
 
 const allTools = [
@@ -30,29 +30,36 @@ const allTools = [
     icon: Scissors,
     label: 'AI 智能抠图',
     href: '/remove-background',
-    badge: '可用',
-    badgeClass: 'bg-green-50 text-green-700 border-green-200',
+    badge: '热门',
+    badgeClass: 'bg-red-50 text-red-600 border-red-200',
   },
   {
     icon: Image,
     label: 'AI 白底图',
-    href: '#',
-    badge: '即将上线',
-    badgeClass: 'bg-slate-100 text-slate-500 border-slate-200',
+    href: '/white-background',
+    badge: '可用',
+    badgeClass: 'bg-green-50 text-green-700 border-green-200',
   },
   {
     icon: Sparkles,
     label: '图片变清晰',
-    href: '#',
-    badge: '即将上线',
-    badgeClass: 'bg-slate-100 text-slate-500 border-slate-200',
+    href: '/enhance',
+    badge: '可用',
+    badgeClass: 'bg-green-50 text-green-700 border-green-200',
   },
   {
     icon: Zap,
     label: '去水印',
-    href: '#',
-    badge: '即将上线',
-    badgeClass: 'bg-slate-100 text-slate-500 border-slate-200',
+    href: '/remove-watermark',
+    badge: '可用',
+    badgeClass: 'bg-green-50 text-green-700 border-green-200',
+  },
+  {
+    icon: Pen,
+    label: '手动精修',
+    href: '/retouch',
+    badge: '可用',
+    badgeClass: 'bg-green-50 text-green-700 border-green-200',
   },
 ]
 
@@ -127,7 +134,7 @@ export function Header() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
-                variant={location.pathname.startsWith('/remove-background') ? 'secondary' : 'ghost'}
+                variant={location.pathname !== '/' ? 'secondary' : 'ghost'}
                 size="sm"
                 className="gap-1"
               >
