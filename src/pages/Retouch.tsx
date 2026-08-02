@@ -88,23 +88,28 @@ export function Retouch() {
     if (!file.type.startsWith('image/')) return
     const url = URL.createObjectURL(file)
     setOriginalSrc(url); setResultSrc(null); setFileName(file.name); setErrorMsg('')
+    setState('editing')
+  }, [])
+
+  // 等 canvas 挂载后绘制图片
+  useEffect(() => {
+    if (state !== 'editing' || !originalSrc || !canvasRef.current) return
+    const canvas = canvasRef.current
     const img = new Image()
     img.onload = () => {
       const maxDim = 2048
       let w = img.naturalWidth, h = img.naturalHeight
       if (Math.max(w, h) > maxDim) { const r = maxDim / Math.max(w, h); w = Math.round(w * r); h = Math.round(h * r) }
-      const canvas = canvasRef.current
-      if (canvas) {
-        canvas.width = w; canvas.height = h
-        const ctx = canvas.getContext('2d')!
-        ctx.drawImage(img, 0, 0, w, h)
-        originalDataRef.current = ctx.getImageData(0, 0, w, h)
-        alphaHistoryRef.current = []
-        setState('editing')
-      }
+      canvas.width = w; canvas.height = h
+      const ctx = canvas.getContext('2d')!
+      ctx.drawImage(img, 0, 0, w, h)
+      originalDataRef.current = ctx.getImageData(0, 0, w, h)
+      alphaHistoryRef.current = []
+      // Force re-render to show canvas content
+      canvas.style.display = 'block'
     }
-    img.src = url
-  }, [])
+    img.src = originalSrc
+  }, [state, originalSrc])
 
   const handleDrop = useCallback((e: React.DragEvent) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }, [handleFile])
 
