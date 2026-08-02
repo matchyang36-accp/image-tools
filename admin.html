@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>意见反馈管理 - 改图工具箱</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f1f5f9; color: #1e293b; }
+    .container { max-width: 800px; margin: 0 auto; padding: 24px; }
+    h1 { font-size: 24px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+    .subtitle { color: #64748b; font-size: 14px; margin-bottom: 24px; }
+    .card { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.06); position: relative; }
+    .card-content { font-size: 15px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+    .card-meta { margin-top: 12px; font-size: 12px; color: #94a3b8; display: flex; gap: 16px; align-items: center; }
+    .card-meta span { background: #f1f5f9; padding: 2px 8px; border-radius: 4px; }
+    .card .delete-btn { position: absolute; top: 16px; right: 16px; width: 28px; height: 28px; border: none; background: none; color: #94a3b8; cursor: pointer; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+    .card .delete-btn:hover { background: #fee2e2; color: #ef4444; }
+    .empty { text-align: center; padding: 60px 20px; color: #94a3b8; }
+    .empty svg { width: 48px; height: 48px; margin-bottom: 12px; color: #cbd5e1; }
+    .btn-refresh { margin-left: auto; background: #8b5cf6; color: #fff; border: none; padding: 6px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+    .btn-refresh:hover { background: #7c3aed; }
+    .header-row { display: flex; align-items: center; margin-bottom: 24px; }
+    .count { font-size: 13px; color: #64748b; }
+    .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #1e293b; color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 14px; z-index: 999; display: none; }
+    .toast.show { display: block; animation: fadeIn .3s; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateX(-50%) translateY(-10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+  </style>
+</head>
+<body>
+  <div class="toast" id="toast"></div>
+  <div class="container">
+    <div class="header-row">
+      <div>
+        <h1>意见反馈管理</h1>
+        <p class="subtitle">改图工具箱 · 用户反馈列表</p>
+      </div>
+      <button class="btn-refresh" onclick="loadFeedback()">刷新</button>
+    </div>
+    <p class="count" id="count"></p>
+    <div id="list"></div>
+  </div>
+
+  <script>
+    async function loadFeedback() {
+      try {
+        const res = await fetch('/api/feedback');
+        const list = await res.json();
+        const count = document.getElementById('count');
+        const container = document.getElementById('list');
+        count.textContent = `共 ${list.length} 条反馈`;
+
+        if (list.length === 0) {
+          container.innerHTML = `<div class="empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <p>暂无反馈</p>
+          </div>`;
+          return;
+        }
+
+        container.innerHTML = list.map(f => `
+          <div class="card" id="item-${f.id}">
+            <button class="delete-btn" onclick="deleteFeedback('${f.id}')" title="删除">✕</button>
+            <div class="card-content">${escapeHtml(f.content)}</div>
+            <div class="card-meta">
+              <span>${f.page || '/'}</span>
+              <span>${new Date(f.time).toLocaleString('zh-CN')}</span>
+            </div>
+          </div>
+        `).join('');
+      } catch (e) {
+        showToast('加载失败: ' + e.message);
+      }
+    }
+
+    async function deleteFeedback(id) {
+      if (!confirm('确定删除这条反馈？')) return;
+      try {
+        const res = await fetch('/api/feedback/' + id, { method: 'DELETE' });
+        if (res.ok) {
+          document.getElementById('item-' + id)?.remove();
+          showToast('已删除');
+          loadFeedback();
+        }
+      } catch (e) {
+        showToast('删除失败');
+      }
+    }
+
+    function escapeHtml(s) {
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2000);
+    }
+
+    loadFeedback();
+  </script>
+</body>
+</html>
