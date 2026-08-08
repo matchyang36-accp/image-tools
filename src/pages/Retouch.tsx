@@ -7,21 +7,24 @@ import {
 } from '@/components/ui/accordion'
 import {
   Upload, Download, RefreshCw, ImagePlus, ClipboardPaste,
-  Check, Loader2, AlertCircle, Lock, HelpCircle, Pen, Undo2, Eraser,
+  Check, AlertCircle, Lock, HelpCircle, Pen, Undo2, Eraser,
+  Plus, Minus, Maximize2,
 } from 'lucide-react'
+import { useI18n } from '@/i18n'
 
 const FAQ_ITEMS = [
-  { q: '手动精修能做什么？', a: '可以在图片上用画笔擦除不需要的部分（如残留背景边缘），或用恢复笔还原误擦的区域。适合对 AI 抠图结果进行精细化修整。' },
-  { q: '如何使用画笔？', a: '模式选"橡皮擦"：在图片上涂抹可擦除像素（变透明）；选"恢复笔"：可恢复之前擦除的像素。可用鼠标/触控操作。' },
-  { q: '图片会上传到服务器吗？', a: '完全不会。所有处理在浏览器本地完成，图片数据不会离开你的设备。' },
-  { q: '支持哪些图片格式？', a: '支持所有主流格式（JPG/PNG/WebP），输出为透明背景 PNG。' },
-  { q: '误操作了怎么办？', a: '点"撤销"可回退上一步操作。支持多次撤销。' },
-  { q: '画笔大小可以调吗？', a: '可以，顶部有画笔大小滑块，从 2px 到 100px 可调。处理细节用较小画笔，大面积用较大画笔。' },
+  { qKey: 'faq.rt.1q', aKey: 'faq.rt.1a' },
+  { qKey: 'faq.rt.2q', aKey: 'faq.rt.2a' },
+  { qKey: 'faq.rt.3q', aKey: 'faq.rt.3a' },
+  { qKey: 'faq.rt.4q', aKey: 'faq.rt.4a' },
+  { qKey: 'faq.rt.5q', aKey: 'faq.rt.5a' },
+  { qKey: 'faq.rt.6q', aKey: 'faq.rt.6a' },
 ]
 
 type ProcessState = 'idle' | 'editing' | 'done' | 'error'
 
 export function Retouch() {
+  const { t } = useI18n()
   const [state, setState] = useState<ProcessState>('idle')
   const [errorMsg, setErrorMsg] = useState('')
   const [originalSrc, setOriginalSrc] = useState<string | null>(null)
@@ -35,11 +38,33 @@ export function Retouch() {
   const alphaHistoryRef = useRef<Uint8Array[]>([])
   const isDrawingRef = useRef(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const clickStartRef = useRef<{ x: number; y: number } | null>(null)
+
+  // 圆形光标
+  const [circlePos, setCirclePos] = useState({ x: 0, y: 0 })
+  const [circleVisible, setCircleVisible] = useState(false)
+  const circleScaleRef = useRef(1)
 
   const [zoom, setZoom] = useState(1)
   const clampZoom = (v: number) => Math.min(8, Math.max(0.5, v))
-  const fitToCanvas = useCallback(() => setZoom(1), [])
+  const fitToCanvas = useCallback(() => { setZoom(1); setPan({ x: 0, y: 0 }) }, [])
   const zoomBy = useCallback((d: number) => setZoom((p) => clampZoom(p + d)), [])
+
+  // Alt + 拖拽平移
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const isPanningRef = useRef(false)
+  const panStartRef = useRef({ x: 0, y: 0 })
+  const [isPanning, setIsPanning] = useState(false)
+  const [altHeld, setAltHeld] = useState(false)
+
+  // 追踪 Alt 键状态
+  useEffect(() => {
+    const onDown = (e: KeyboardEvent) => { if (e.key === 'Alt') setAltHeld(true) }
+    const onUp = (e: KeyboardEvent) => { if (e.key === 'Alt') { setAltHeld(false); isPanningRef.current = false; setIsPanning(false) } }
+    window.addEventListener('keydown', onDown)
+    window.addEventListener('keyup', onUp)
+    return () => { window.removeEventListener('keydown', onDown); window.removeEventListener('keyup', onUp) }
+  }, [])
 
   const drawCanvas = useCallback(() => {
     const canvas = canvasRef.current
@@ -123,7 +148,7 @@ export function Retouch() {
   const handleUndo = () => {
     if (alphaHistoryRef.current.length === 0 || !originalDataRef.current) return
     const prevAlpha = alphaHistoryRef.current.pop()!
-    const { data, width } = originalDataRef.current
+    const { data } = originalDataRef.current
     for (let i = 0; i < prevAlpha.length; i++) data[i * 4 + 3] = prevAlpha[i]
     drawCanvas()
   }
@@ -151,10 +176,10 @@ export function Retouch() {
     <div className="py-8 px-4">
       <div className="mx-auto max-w-4xl">
         <div className="text-center mb-8">
-          <Badge variant="secondary" className="mb-3"><Pen className="w-3 h-3 mr-1" />手动精修</Badge>
-          <h1 className="text-3xl font-bold text-slate-900">画笔模式，手动精修图片细节</h1>
-          <p className="mt-2 text-slate-500">用橡皮擦去除多余边缘，用恢复笔还原误擦部分。适合抠图后精修</p>
-          <div className="mt-2 inline-flex items-center gap-1 text-xs text-green-600"><Check className="w-3 h-3" />100% 免费 · 本地处理 · 无需注册</div>
+          <Badge variant="secondary" className="mb-3"><Pen className="w-3 h-3 mr-1" />{t('rt.badge')}</Badge>
+          <h1 className="text-3xl font-bold text-slate-900">{t('rt.title')}</h1>
+          <p className="mt-2 text-slate-500">{t('rt.subtitle')}</p>
+          <div className="mt-2 inline-flex items-center gap-1 text-xs text-green-600"><Check className="w-3 h-3" />{t('rt.freeTag')}</div>
         </div>
 
         {/* Upload */}
@@ -163,14 +188,14 @@ export function Retouch() {
             onDragOver={(e) => e.preventDefault()} onDrop={handleDrop} onClick={() => fileInputRef.current?.click()}>
             <CardContent className="flex flex-col items-center justify-center py-16">
               <div className="w-16 h-16 rounded-2xl bg-violet-50 flex items-center justify-center mb-4"><Upload className="w-8 h-8 text-violet-500" /></div>
-              <h3 className="text-lg font-medium text-slate-700 mb-1">上传图片</h3>
-              <p className="text-sm text-slate-400 mb-4">拖拽文件到此处，或点击上传 / Ctrl+V 粘贴</p>
+              <h3 className="text-lg font-medium text-slate-700 mb-1">{t('upload.title')}</h3>
+              <p className="text-sm text-slate-400 mb-4">{t('upload.desc')}</p>
               <div className="flex items-center gap-3 text-xs text-slate-400">
-                <span className="flex items-center gap-1"><ImagePlus className="w-3 h-3" /> JPG / PNG / WebP</span>
-                <span className="flex items-center gap-1"><ClipboardPaste className="w-3 h-3" /> 支持粘贴</span>
+                <span className="flex items-center gap-1"><ImagePlus className="w-3 h-3" /> {t('upload.fmt')}</span>
+                <span className="flex items-center gap-1"><ClipboardPaste className="w-3 h-3" /> {t('upload.paste')}</span>
               </div>
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }} />
-              <div className="mt-4 flex items-center gap-1.5 text-xs text-slate-400 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100"><Lock className="w-3 h-3 text-green-500" />图片仅在本地处理，不上传服务器</div>
+              <div className="mt-4 flex items-center gap-1.5 text-xs text-slate-400 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100"><Lock className="w-3 h-3 text-green-500" />{t('upload.privacyShort')}</div>
             </CardContent>
           </Card>
         )}
@@ -181,59 +206,144 @@ export function Retouch() {
             <Card><CardContent className="p-4">
               <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                 <div className="flex items-center gap-2">
-                  <Badge className="bg-violet-50 text-violet-700 border border-violet-200"><Pen className="w-3 h-3 mr-1" />精修模式</Badge>
+                  <Badge className="bg-violet-50 text-violet-700 border border-violet-200"><Pen className="w-3 h-3 mr-1" />{t('rt.editBadge')}</Badge>
                   <span className="text-xs text-slate-400 truncate max-w-[200px]">{fileName}</span>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
+                  {/* 缩放按钮 */}
+                  <div className="flex items-stretch bg-white rounded-lg border border-slate-200 overflow-hidden">
+                    <button
+                      onClick={() => zoomBy(-0.25)}
+                      disabled={zoom <= 0.5}
+                      className="w-7 h-7 flex items-center justify-center text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-30 border-r border-slate-200"
+                      title={t('rb.zoomOut')}
+                    ><Minus className="w-3 h-3" /></button>
+                    <span className="w-10 h-7 flex items-center justify-center text-xs text-slate-600 bg-slate-50 border-r border-slate-200 select-none">{Math.round(zoom * 100)}%</span>
+                    <button
+                      onClick={() => zoomBy(0.25)}
+                      disabled={zoom >= 8}
+                      className="w-7 h-7 flex items-center justify-center text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-30 border-r border-slate-200"
+                      title={t('rb.zoomIn')}
+                    ><Plus className="w-3 h-3" /></button>
+                    <button
+                      onClick={fitToCanvas}
+                      className="w-7 h-7 flex items-center justify-center text-sm text-slate-500 hover:bg-slate-50 transition-colors"
+                      title={t('rb.fit')}
+                    ><Maximize2 className="w-3 h-3" /></button>
+                  </div>
+                  <div className="w-px h-6 bg-slate-200" />{/* divider */}
                   {/* Brush mode toggle */}
                   <div className="flex bg-slate-100 rounded-lg p-0.5">
                     <button onClick={() => setBrushMode('eraser')} className={`flex items-center gap-1 px-3 py-1 text-xs rounded-md transition-colors ${brushMode === 'eraser' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>
-                      <Eraser className="w-3.5 h-3.5" />橡皮擦
+                      <Eraser className="w-3.5 h-3.5" />{t('rt.eraser')}
                     </button>
                     <button onClick={() => setBrushMode('restore')} className={`flex items-center gap-1 px-3 py-1 text-xs rounded-md transition-colors ${brushMode === 'restore' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>
-                      <Undo2 className="w-3.5 h-3.5" />恢复笔
+                      <Undo2 className="w-3.5 h-3.5" />{t('rt.restore')}
                     </button>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-slate-500">大小</span>
+                    <span className="text-xs text-slate-500">{t('rt.size')}</span>
                     <input type="range" min={2} max={100} value={brushSize} onChange={(e) => setBrushSize(Number(e.target.value))} className="w-16 accent-violet-500" />
                     <span className="text-xs text-slate-400 w-8">{brushSize}px</span>
                   </div>
                   <Button variant="ghost" size="sm" onClick={handleUndo} disabled={alphaHistoryRef.current.length === 0} className="text-xs gap-1">
-                    <Undo2 className="w-3.5 h-3.5" />撤销
+                    <Undo2 className="w-3.5 h-3.5" />{t('rb.undo')}
                   </Button>
                 </div>
               </div>
 
               <div className="relative rounded-lg overflow-hidden border border-slate-200 select-none"
-                style={{ minHeight: '300px', backgroundImage: 'linear-gradient(45deg, #e2e8f0 25%, transparent 25%), linear-gradient(-45deg, #e2e8f0 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e2e8f0 75%), linear-gradient(-45deg, transparent 75%, #e2e8f0 75%)', backgroundSize: '20px 20px', backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                onMouseDown={(e) => { isDrawingRef.current = true; paintAt(e.clientX, e.clientY) }}
-                onMouseMove={(e) => { if (isDrawingRef.current) paintAt(e.clientX, e.clientY) }}
-                onMouseUp={() => { isDrawingRef.current = false }}
-                onMouseLeave={() => { isDrawingRef.current = false }}
+                style={{ minHeight: '300px', backgroundImage: 'linear-gradient(45deg, #e2e8f0 25%, transparent 25%), linear-gradient(-45deg, #e2e8f0 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e2e8f0 75%), linear-gradient(-45deg, transparent 75%, #e2e8f0 75%)', backgroundSize: '20px 20px', backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: isPanning ? 'grabbing' : (zoom > 1 && altHeld ? 'grab' : 'none') }}
+                onWheel={(e) => { e.preventDefault(); zoomBy(-e.deltaY / 500) }}
+                onMouseDown={(e) => {
+                  if (zoom > 1 && e.altKey) {
+                    isPanningRef.current = true
+                    setIsPanning(true)
+                    panStartRef.current = { x: e.clientX - pan.x, y: e.clientY - pan.y }
+                  } else {
+                    clickStartRef.current = { x: e.clientX, y: e.clientY }
+                  }
+                }}
+                onMouseMove={(e) => {
+                  const container = e.currentTarget
+                  const canvas = canvasRef.current
+                  if (canvas) {
+                    circleScaleRef.current = canvas.width / canvas.getBoundingClientRect().width
+                  }
+                  setCirclePos({ x: e.clientX - container.getBoundingClientRect().left, y: e.clientY - container.getBoundingClientRect().top })
+
+                  if (isPanningRef.current) {
+                    setPan({ x: e.clientX - panStartRef.current.x, y: e.clientY - panStartRef.current.y })
+                    return
+                  }
+
+                  setCircleVisible(true)
+                  if (clickStartRef.current && !isDrawingRef.current) {
+                    const dx = e.clientX - clickStartRef.current.x
+                    const dy = e.clientY - clickStartRef.current.y
+                    if (Math.sqrt(dx * dx + dy * dy) > 3) {
+                      isDrawingRef.current = true
+                      paintAt(clickStartRef.current.x, clickStartRef.current.y)
+                    }
+                  }
+                  if (isDrawingRef.current) paintAt(e.clientX, e.clientY)
+                }}
+                onMouseUp={(e) => {
+                  if (isPanningRef.current) {
+                    isPanningRef.current = false
+                    setIsPanning(false)
+                    return
+                  }
+                  if (!isDrawingRef.current && clickStartRef.current) {
+                    zoomBy(e.altKey ? -0.25 : 0.25)
+                  }
+                  isDrawingRef.current = false
+                  clickStartRef.current = null
+                }}
+                onMouseLeave={() => { isDrawingRef.current = false; isPanningRef.current = false; setIsPanning(false); clickStartRef.current = null; setCircleVisible(false) }}
                 onTouchStart={(e) => { e.preventDefault(); isDrawingRef.current = true; if (e.touches[0]) paintAt(e.touches[0].clientX, e.touches[0].clientY) }}
                 onTouchMove={(e) => { e.preventDefault(); if (isDrawingRef.current && e.touches[0]) paintAt(e.touches[0].clientX, e.touches[0].clientY) }}
                 onTouchEnd={() => { isDrawingRef.current = false }}
               >
-                <canvas ref={canvasRef} style={{ maxWidth: '100%', maxHeight: '60vh', objectFit: 'contain', cursor: brushMode === 'eraser' ? 'crosshair' : 'cell' }} />
+                {/* 圆形光标指示器 */}
+                {circleVisible && (
+                  <div className="absolute pointer-events-none z-30 rounded-full"
+                    style={{
+                      left: circlePos.x - brushSize / circleScaleRef.current,
+                      top: circlePos.y - brushSize / circleScaleRef.current,
+                      width: (brushSize * 2) / circleScaleRef.current,
+                      height: (brushSize * 2) / circleScaleRef.current,
+                      border: `2px solid ${brushMode === 'eraser' ? 'rgba(239, 68, 68, 0.8)' : 'rgba(34, 197, 94, 0.8)'}`,
+                      backgroundColor: brushMode === 'eraser' ? 'rgba(239, 68, 68, 0.08)' : 'rgba(34, 197, 94, 0.08)',
+                      boxShadow: brushMode === 'eraser' ? '0 0 6px rgba(239, 68, 68, 0.25)' : '0 0 6px rgba(34, 197, 94, 0.25)',
+                    }}
+                  />
+                )}
+                {/* 缩放百分比 */}
+                {zoom !== 1 && (
+                  <div className="absolute top-2 right-2 bg-black/55 text-white/90 text-xs px-2 py-1 rounded-full pointer-events-none z-20 backdrop-blur-sm">
+                    {Math.round(zoom * 100)}%
+                  </div>
+                )}
+                <canvas ref={canvasRef} style={{ maxWidth: '100%', maxHeight: '60vh', objectFit: 'contain', cursor: 'none', transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`, transformOrigin: 'center center', willChange: zoom > 1 ? 'transform' : 'auto' }} />
               </div>
               <p className="mt-2 text-xs text-slate-400 text-center">
-                {brushMode === 'eraser' ? '橡皮擦模式：涂抹区域将变为透明（棋盘格背景）' : '恢复笔模式：涂抹区域将恢复为原始像素'}
+                {brushMode === 'eraser' ? t('rt.eraseTip') : t('rt.restoreTip')}
               </p>
             </CardContent></Card>
 
             <div className="flex items-center justify-center gap-3">
-              <Button onClick={handleDone} className="gap-2 bg-violet-600 hover:bg-violet-700"><Check className="w-4 h-4" />完成精修</Button>
-              <Button variant="outline" onClick={handleReset} className="gap-2"><RefreshCw className="w-4 h-4" />重新上传</Button>
+              <Button onClick={handleDone} className="gap-2 bg-violet-600 hover:bg-violet-700"><Check className="w-4 h-4" />{t('rt.done')}</Button>
+              <Button variant="outline" onClick={handleReset} className="gap-2"><RefreshCw className="w-4 h-4" />{t('rb.reupload')}</Button>
             </div>
           </div>
         )}
 
         {state === 'error' && (
           <Card className="border-red-100"><CardContent className="py-10"><div className="flex flex-col items-center text-center">
-            <AlertCircle className="w-10 h-10 text-red-400 mb-3" /><h3 className="font-medium text-slate-700 mb-1">处理失败</h3>
+            <AlertCircle className="w-10 h-10 text-red-400 mb-3" /><h3 className="font-medium text-slate-700 mb-1">{t('rb.error')}</h3>
             <p className="text-sm text-slate-400 mb-4">{errorMsg}</p>
-            <Button variant="outline" onClick={handleReset}><RefreshCw className="w-4 h-4 mr-2" />重试</Button>
+            <Button variant="outline" onClick={handleReset}><RefreshCw className="w-4 h-4 mr-2" />{t('rb.retry')}</Button>
           </div></CardContent></Card>
         )}
 
@@ -242,7 +352,7 @@ export function Retouch() {
             <Card><CardContent className="p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Badge className="bg-green-50 text-green-700 border border-green-200"><Check className="w-3 h-3 mr-1" />精修完成</Badge>
+                  <Badge className="bg-green-50 text-green-700 border border-green-200"><Check className="w-3 h-3 mr-1" />{t('rt.doneBadge')}</Badge>
                   <span className="text-xs text-slate-400 truncate max-w-[200px]">{fileName}</span>
                 </div>
               </div>
@@ -253,21 +363,21 @@ export function Retouch() {
             </CardContent></Card>
 
             <div className="flex items-center justify-center gap-3">
-              <Button onClick={handleDownload} className="gap-2 bg-violet-600 hover:bg-violet-700"><Download className="w-4 h-4" />下载透明 PNG</Button>
-              <Button variant="outline" onClick={handleBackToEdit} className="gap-2"><Pen className="w-4 h-4" />继续精修</Button>
-              <Button variant="outline" onClick={handleReset} className="gap-2"><RefreshCw className="w-4 h-4" />重新上传</Button>
+              <Button onClick={handleDownload} className="gap-2 bg-violet-600 hover:bg-violet-700"><Download className="w-4 h-4" />{t('rt.download')}</Button>
+              <Button variant="outline" onClick={handleBackToEdit} className="gap-2"><Pen className="w-4 h-4" />{t('rt.continue')}</Button>
+              <Button variant="outline" onClick={handleReset} className="gap-2"><RefreshCw className="w-4 h-4" />{t('rb.reupload')}</Button>
             </div>
-            <p className="text-center text-xs text-slate-400">下载为透明 PNG，可直接用于电商上架、海报设计等场景</p>
+            <p className="text-center text-xs text-slate-400">{t('rt.tip')}</p>
           </div>
         )}
 
         <div className="mt-10">
-          <div className="flex items-center gap-2 mb-4"><HelpCircle className="w-4 h-4 text-violet-500" /><h2 className="font-semibold text-slate-800">常见问题</h2></div>
+          <div className="flex items-center gap-2 mb-4"><HelpCircle className="w-4 h-4 text-violet-500" /><h2 className="font-semibold text-slate-800">{t('rt.faqTitle')}</h2></div>
           <Accordion type="single" collapsible className="w-full space-y-2">
             {FAQ_ITEMS.map((item, i) => (
               <AccordionItem key={i} value={`faq-${i}`} className="border border-slate-200 rounded-xl px-4 bg-white shadow-sm">
-                <AccordionTrigger className="text-sm font-medium text-slate-800 hover:text-violet-700 hover:no-underline py-4">{item.q}</AccordionTrigger>
-                <AccordionContent className="text-sm text-slate-500 pb-4 leading-relaxed">{item.a}</AccordionContent>
+                <AccordionTrigger className="text-sm font-medium text-slate-800 hover:text-violet-700 hover:no-underline py-4">{t(item.qKey)}</AccordionTrigger>
+                <AccordionContent className="text-sm text-slate-500 pb-4 leading-relaxed">{t(item.aKey)}</AccordionContent>
               </AccordionItem>
             ))}
           </Accordion>

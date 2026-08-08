@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
 import { Header } from '@/components/Header'
+import { I18nProvider, useI18n } from '@/i18n'
 import { Home } from '@/pages/Home'
 import { RemoveBg } from '@/pages/RemoveBg'
 import { WhiteBg } from '@/pages/WhiteBg'
@@ -11,6 +12,7 @@ import './App.css'
 
 function Footer() {
   const year = new Date().getFullYear()
+  const { t } = useI18n()
   return (
     <footer className="border-t bg-white mt-12">
       <div className="mx-auto max-w-6xl px-4 py-10">
@@ -18,47 +20,49 @@ function Footer() {
           {/* Brand */}
           <div>
             <div className="flex items-center gap-2 font-extrabold text-lg text-slate-900 mb-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-white" />
-              </div>
+              <img
+                src="/logo.png"
+                alt="改图工具箱"
+                className="h-8 w-auto object-contain"
+              />
               改图工具箱
             </div>
             <p className="text-sm text-slate-400 leading-relaxed">
-              免费在线 AI 图片处理平台，抠图、变清晰、去水印，无需下载安装。
+              {t('footer.desc')}
             </p>
             <div className="mt-3 flex items-center gap-1.5 text-xs text-green-600">
               <ShieldCheck className="w-3.5 h-3.5" />
-              图片在本地浏览器处理，不上传服务器
+              {t('footer.privacy')}
             </div>
           </div>
 
           {/* Tools */}
           <div>
-            <h3 className="font-semibold text-sm text-slate-700 mb-3">工具导航</h3>
+            <h3 className="font-semibold text-sm text-slate-700 mb-3">{t('footer.tools')}</h3>
             <ul className="space-y-2 text-sm text-slate-500">
               <li>
                 <Link to="/remove-background" className="hover:text-violet-600 transition-colors flex items-center gap-1.5">
-                  <Scissors className="w-3.5 h-3.5" /> AI 智能抠图
+                  <Scissors className="w-3.5 h-3.5" /> {t('tool.rb.title')}
                 </Link>
               </li>
               <li>
                 <Link to="/white-background" className="hover:text-blue-600 transition-colors flex items-center gap-1.5">
-                  <Image className="w-3.5 h-3.5" /> AI 白底图
+                  <Image className="w-3.5 h-3.5" /> {t('tool.wb.title')}
                 </Link>
               </li>
               <li>
                 <Link to="/enhance" className="hover:text-amber-600 transition-colors flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5" /> 图片变清晰
+                  <Sparkles className="w-3.5 h-3.5" /> {t('tool.en.title')}
                 </Link>
               </li>
               <li>
                 <Link to="/remove-watermark" className="hover:text-emerald-600 transition-colors flex items-center gap-1.5">
-                  <Zap className="w-3.5 h-3.5" /> 去水印
+                  <Zap className="w-3.5 h-3.5" /> {t('tool.wm.title')}
                 </Link>
               </li>
               <li>
                 <Link to="/retouch" className="hover:text-purple-600 transition-colors flex items-center gap-1.5">
-                  <Pen className="w-3.5 h-3.5" /> 手动精修
+                  <Pen className="w-3.5 h-3.5" /> {t('tool.rt.title')}
                 </Link>
               </li>
             </ul>
@@ -66,16 +70,16 @@ function Footer() {
 
           {/* Legal & Contact */}
           <div>
-            <h3 className="font-semibold text-sm text-slate-700 mb-3">关于我们</h3>
+            <h3 className="font-semibold text-sm text-slate-700 mb-3">{t('footer.about')}</h3>
             <ul className="space-y-2 text-sm text-slate-500">
               <li>
-                <a href="#" className="hover:text-violet-600 transition-colors">隐私政策</a>
+                <a href="#" className="hover:text-violet-600 transition-colors">{t('footer.privacyPolicy')}</a>
               </li>
               <li>
-                <a href="#" className="hover:text-violet-600 transition-colors">服务条款</a>
+                <a href="#" className="hover:text-violet-600 transition-colors">{t('footer.terms')}</a>
               </li>
               <li>
-                <a href="#" className="hover:text-violet-600 transition-colors">联系我们</a>
+                <a href="#" className="hover:text-violet-600 transition-colors">{t('footer.contact')}</a>
               </li>
             </ul>
           </div>
@@ -83,12 +87,12 @@ function Footer() {
 
         {/* Bottom bar */}
         <div className="border-t pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
-          <p>© {year} 改图工具箱 保留所有权利</p>
+          <p>{t('footer.rights', { year })}</p>
           <div className="flex items-center gap-4">
-            <span>ICP备案号：（待申请）</span>
+            <span>{t('footer.icp')}</span>
             <span className="hidden sm:inline text-slate-300">|</span>
             <a href="https://beian.miit.gov.cn" target="_blank" rel="noreferrer" className="hover:text-slate-600 transition-colors hidden sm:inline">
-              工业和信息化部备案查询
+              {t('footer.beianQuery')}
             </a>
           </div>
         </div>
@@ -100,20 +104,22 @@ function Footer() {
 function App() {
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-slate-50 flex flex-col">
-        <Header />
-        <main className="flex-1">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/remove-background" element={<RemoveBg />} />
-            <Route path="/white-background" element={<WhiteBg />} />
-            <Route path="/enhance" element={<Enhance />} />
-            <Route path="/remove-watermark" element={<Watermark />} />
-            <Route path="/retouch" element={<Retouch />} />
-          </Routes>
-        </main>
-        <Footer />
-      </div>
+      <I18nProvider>
+        <div className="min-h-screen bg-slate-50 flex flex-col">
+          <Header />
+          <main className="flex-1">
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/remove-background" element={<RemoveBg />} />
+              <Route path="/white-background" element={<WhiteBg />} />
+              <Route path="/enhance" element={<Enhance />} />
+              <Route path="/remove-watermark" element={<Watermark />} />
+              <Route path="/retouch" element={<Retouch />} />
+            </Routes>
+          </main>
+          <Footer />
+        </div>
+      </I18nProvider>
     </BrowserRouter>
   )
 }

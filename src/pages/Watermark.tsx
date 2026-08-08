@@ -9,18 +9,18 @@ import {
   Upload, Download, RefreshCw, ImagePlus, ClipboardPaste,
   Zap, Check, Loader2, AlertCircle, Lock, HelpCircle, Eraser, Undo2,
 } from 'lucide-react'
+import { useI18n } from '@/i18n'
 
 const FAQ_ITEMS = [
-  { q: '去水印效果如何？', a: '通过智能填充算法，用周围像素替换水印区域。适合简单背景的水印/文字/日期，复杂纹理背景效果有限。建议先用画笔精确涂抹水印区域。' },
-  { q: '怎么选取水印区域？', a: '上传图片后，用鼠标（或手指）在图片上拖动涂抹，红色半透明区域即为选中。可调节画笔大小，涂抹越精确效果越好。' },
-  { q: '图片会上传到服务器吗？', a: '完全不会。所有处理都在浏览器本地完成，图片数据不会离开你的设备。' },
-  { q: '能去除所有类型的水印吗？', a: '对简单背景（纯色/渐变）上的水印效果最好；复杂图案/照片��的水印可能残留痕迹。后续会接入 AI 模型提升效果。' },
-  { q: '涂错了怎么办？', a: '点"撤销涂抹"可回退上一步，��点"清除涂抹"全部擦除重新来。' },
-  { q: '支持批量处理吗？', a: '批量处理功能即将上线，敬请期待。' },
+  { qKey: 'faq.wm.1q', aKey: 'faq.wm.1a' },
+  { qKey: 'faq.wm.2q', aKey: 'faq.wm.2a' },
+  { qKey: 'faq.wm.3q', aKey: 'faq.wm.3a' },
+  { qKey: 'faq.wm.4q', aKey: 'faq.wm.4a' },
+  { qKey: 'faq.wm.5q', aKey: 'faq.wm.5a' },
+  { qKey: 'faq.wm.6q', aKey: 'faq.wm.6a' },
 ]
 
 type ProcessState = 'idle' | 'marking' | 'processing' | 'done' | 'error'
-const ZOOM_MIN = 0.5; const ZOOM_MAX = 8; const ZOOM_STEP = 0.25
 
 function inpaint(imageData: ImageData, mask: Uint8Array): ImageData {
   const { data, width, height } = imageData
@@ -52,6 +52,7 @@ function inpaint(imageData: ImageData, mask: Uint8Array): ImageData {
 }
 
 export function Watermark() {
+  const { t } = useI18n()
   const [state, setState] = useState<ProcessState>('idle')
   const [errorMsg, setErrorMsg] = useState('')
   const [originalSrc, setOriginalSrc] = useState<string | null>(null)
@@ -67,15 +68,9 @@ export function Watermark() {
   const isDrawingRef = useRef(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Pan & zoom for canvas
-  const [zoom, setZoom] = useState(1)
-  const [pan, setPan] = useState({ x: 0, y: 0 })
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const clampZoom = (v: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, v))
-  const fitToCanvas = useCallback(() => { setZoom(1); setPan({ x: 0, y: 0 }) }, [])
-
-  const zoomBy = useCallback((d: number) => setZoom((p) => clampZoom(p + d)), [])
+  const fitToCanvas = useCallback(() => {}, [])
 
   const drawMaskOnCanvas = useCallback(() => {
     const canvas = canvasRef.current
@@ -179,7 +174,7 @@ export function Watermark() {
   const handleProcess = () => {
     if (!imageDataRef.current || !maskRef.current) return
     // Check if any mask exists
-    if (maskRef.current.every((v) => v === 0)) { setErrorMsg('请先在图片上涂抹水印区域'); return }
+    if (maskRef.current.every((v) => v === 0)) { setErrorMsg(t('wm.markEmpty')); return }
     setState('processing')
     setTimeout(() => {
       try {
@@ -190,7 +185,7 @@ export function Watermark() {
         setResultSrc(canvas.toDataURL('image/png'))
         setState('done')
       } catch (err: unknown) {
-        setErrorMsg(err instanceof Error ? err.message : '处理失败')
+        setErrorMsg(err instanceof Error ? err.message : t('rb.error'))
         setState('error')
       }
     }, 300)
@@ -208,10 +203,10 @@ export function Watermark() {
     <div className="py-8 px-4">
       <div className="mx-auto max-w-4xl">
         <div className="text-center mb-8">
-          <Badge variant="secondary" className="mb-3"><Zap className="w-3 h-3 mr-1" />去水印</Badge>
-          <h1 className="text-3xl font-bold text-slate-900">智能去除水印 / 文字 / 日期</h1>
-          <p className="mt-2 text-slate-500">涂抹选中水印区域，AI 自动用周围像素智能填充</p>
-          <div className="mt-2 inline-flex items-center gap-1 text-xs text-green-600"><Check className="w-3 h-3" />100% 免费 · 本地处理 · 无需注册</div>
+          <Badge variant="secondary" className="mb-3"><Zap className="w-3 h-3 mr-1" />{t('wm.badge')}</Badge>
+          <h1 className="text-3xl font-bold text-slate-900">{t('wm.title')}</h1>
+          <p className="mt-2 text-slate-500">{t('wm.subtitle')}</p>
+          <div className="mt-2 inline-flex items-center gap-1 text-xs text-green-600"><Check className="w-3 h-3" />{t('wm.freeTag')}</div>
         </div>
 
         {/* Upload */}
@@ -220,14 +215,14 @@ export function Watermark() {
             onDragOver={(e) => e.preventDefault()} onDrop={handleDrop} onClick={() => fileInputRef.current?.click()}>
             <CardContent className="flex flex-col items-center justify-center py-16">
               <div className="w-16 h-16 rounded-2xl bg-emerald-50 flex items-center justify-center mb-4"><Upload className="w-8 h-8 text-emerald-500" /></div>
-              <h3 className="text-lg font-medium text-slate-700 mb-1">上传图片</h3>
-              <p className="text-sm text-slate-400 mb-4">拖拽文件到此处，或点击上传 / Ctrl+V 粘贴</p>
+              <h3 className="text-lg font-medium text-slate-700 mb-1">{t('upload.title')}</h3>
+              <p className="text-sm text-slate-400 mb-4">{t('upload.desc')}</p>
               <div className="flex items-center gap-3 text-xs text-slate-400">
-                <span className="flex items-center gap-1"><ImagePlus className="w-3 h-3" /> JPG / PNG / WebP</span>
-                <span className="flex items-center gap-1"><ClipboardPaste className="w-3 h-3" /> 支持粘贴</span>
+                <span className="flex items-center gap-1"><ImagePlus className="w-3 h-3" /> {t('upload.fmt')}</span>
+                <span className="flex items-center gap-1"><ClipboardPaste className="w-3 h-3" /> {t('upload.paste')}</span>
               </div>
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }} />
-              <div className="mt-4 flex items-center gap-1.5 text-xs text-slate-400 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100"><Lock className="w-3 h-3 text-green-500" />图片仅在本地处理，不上传服务器</div>
+              <div className="mt-4 flex items-center gap-1.5 text-xs text-slate-400 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100"><Lock className="w-3 h-3 text-green-500" />{t('upload.privacyShort')}</div>
             </CardContent>
           </Card>
         )}
@@ -238,20 +233,20 @@ export function Watermark() {
             <Card><CardContent className="p-4">
               <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                 <div className="flex items-center gap-2">
-                  <Badge className="bg-amber-50 text-amber-700 border border-amber-200"><Eraser className="w-3 h-3 mr-1" />涂抹水印区域</Badge>
+                  <Badge className="bg-amber-50 text-amber-700 border border-amber-200"><Eraser className="w-3 h-3 mr-1" />{t('wm.markBadge')}</Badge>
                   <span className="text-xs text-slate-400 truncate max-w-[200px]">{fileName}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-slate-500">画笔</span>
+                    <span className="text-xs text-slate-500">{t('wm.brush')}</span>
                     <input type="range" min={5} max={80} value={brushSize} onChange={(e) => setBrushSize(Number(e.target.value))}
                       className="w-20 accent-emerald-500" />
                     <span className="text-xs text-slate-400 w-6">{brushSize}px</span>
                   </div>
                   <Button variant="ghost" size="sm" onClick={handleUndo} disabled={maskHistoryRef.current.length === 0} className="text-xs gap-1">
-                    <Undo2 className="w-3.5 h-3.5" />撤销
+                    <Undo2 className="w-3.5 h-3.5" />{t('wm.undo')}
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={handleClearMask} className="text-xs text-red-500 hover:text-red-600">清除涂抹</Button>
+                  <Button variant="ghost" size="sm" onClick={handleClearMask} className="text-xs text-red-500 hover:text-red-600">{t('wm.clear')}</Button>
                 </div>
               </div>
 
@@ -267,12 +262,12 @@ export function Watermark() {
               >
                 <canvas ref={canvasRef} style={{ maxWidth: '100%', maxHeight: '60vh', objectFit: 'contain' }} />
               </div>
-              <p className="mt-2 text-xs text-slate-400 text-center">在图片上按住鼠标拖动涂抹水印区域（红色半透明），松开停止。越精确效果越好。</p>
+              <p className="mt-2 text-xs text-slate-400 text-center">{t('wm.markHint')}</p>
             </CardContent></Card>
 
             <div className="flex items-center justify-center gap-3">
-              <Button onClick={handleProcess} className="gap-2 bg-emerald-600 hover:bg-emerald-700"><Zap className="w-4 h-4" />开始去除水印</Button>
-              <Button variant="outline" onClick={handleReset} className="gap-2"><RefreshCw className="w-4 h-4" />重新上传</Button>
+              <Button onClick={handleProcess} className="gap-2 bg-emerald-600 hover:bg-emerald-700"><Zap className="w-4 h-4" />{t('wm.process')}</Button>
+              <Button variant="outline" onClick={handleReset} className="gap-2"><RefreshCw className="w-4 h-4" />{t('rb.reupload')}</Button>
             </div>
           </div>
         )}
@@ -280,18 +275,18 @@ export function Watermark() {
         {state === 'processing' && (
           <Card><CardContent className="py-12"><div className="flex flex-col items-center">
             <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-4" />
-            <h3 className="font-medium text-slate-700">正在智能填充...</h3>
-            <p className="text-sm text-slate-400 mt-1">用周围像素替换水印区域</p>
+            <h3 className="font-medium text-slate-700">{t('wm.processing')}</h3>
+            <p className="text-sm text-slate-400 mt-1">{t('wm.processingDesc')}</p>
           </div></CardContent></Card>
         )}
 
         {state === 'error' && (
           <Card className="border-red-100"><CardContent className="py-10"><div className="flex flex-col items-center text-center">
-            <AlertCircle className="w-10 h-10 text-red-400 mb-3" /><h3 className="font-medium text-slate-700 mb-1">操作提示</h3>
+            <AlertCircle className="w-10 h-10 text-red-400 mb-3" /><h3 className="font-medium text-slate-700 mb-1">{t('wm.opTip')}</h3>
             <p className="text-sm text-slate-400 mb-4">{errorMsg}</p>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => { setErrorMsg(''); setState('marking') }} className="gap-2"><Undo2 className="w-4 h-4" />返回涂抹</Button>
-              <Button variant="outline" onClick={handleReset}><RefreshCw className="w-4 h-4 mr-2" />重新上传</Button>
+              <Button variant="outline" onClick={() => { setErrorMsg(''); setState('marking') }} className="gap-2"><Undo2 className="w-4 h-4" />{t('wm.backToMark')}</Button>
+              <Button variant="outline" onClick={handleReset}><RefreshCw className="w-4 h-4 mr-2" />{t('rb.reupload')}</Button>
             </div>
           </div></CardContent></Card>
         )}
@@ -301,7 +296,7 @@ export function Watermark() {
             <Card><CardContent className="p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Badge className="bg-green-50 text-green-700 border border-green-200"><Check className="w-3 h-3 mr-1" />处理完成</Badge>
+                  <Badge className="bg-green-50 text-green-700 border border-green-200"><Check className="w-3 h-3 mr-1" />{t('rb.done')}</Badge>
                   <span className="text-xs text-slate-400 truncate max-w-[200px]">{fileName}</span>
                 </div>
               </div>
@@ -311,21 +306,21 @@ export function Watermark() {
             </CardContent></Card>
 
             <div className="flex items-center justify-center gap-3">
-              <Button onClick={handleDownload} className="gap-2 bg-emerald-600 hover:bg-emerald-700"><Download className="w-4 h-4" />下载去水印图片</Button>
-              <Button variant="outline" onClick={() => { setState('marking'); setResultSrc(null) }} className="gap-2"><Undo2 className="w-4 h-4" />返回继续编辑</Button>
-              <Button variant="outline" onClick={handleReset} className="gap-2"><RefreshCw className="w-4 h-4" />重新上传</Button>
+              <Button onClick={handleDownload} className="gap-2 bg-emerald-600 hover:bg-emerald-700"><Download className="w-4 h-4" />{t('wm.download')}</Button>
+              <Button variant="outline" onClick={() => { setState('marking'); setResultSrc(null) }} className="gap-2"><Undo2 className="w-4 h-4" />{t('wm.continueEdit')}</Button>
+              <Button variant="outline" onClick={handleReset} className="gap-2"><RefreshCw className="w-4 h-4" />{t('rb.reupload')}</Button>
             </div>
-            <p className="text-center text-xs text-slate-400">如果不满意，可点"返回继续编辑"重新涂抹水印区域</p>
+            <p className="text-center text-xs text-slate-400">{t('wm.doneTip')}</p>
           </div>
         )}
 
         <div className="mt-10">
-          <div className="flex items-center gap-2 mb-4"><HelpCircle className="w-4 h-4 text-emerald-500" /><h2 className="font-semibold text-slate-800">常见问题</h2></div>
+          <div className="flex items-center gap-2 mb-4"><HelpCircle className="w-4 h-4 text-emerald-500" /><h2 className="font-semibold text-slate-800">{t('wm.faqTitle')}</h2></div>
           <Accordion type="single" collapsible className="w-full space-y-2">
             {FAQ_ITEMS.map((item, i) => (
               <AccordionItem key={i} value={`faq-${i}`} className="border border-slate-200 rounded-xl px-4 bg-white shadow-sm">
-                <AccordionTrigger className="text-sm font-medium text-slate-800 hover:text-emerald-700 hover:no-underline py-4">{item.q}</AccordionTrigger>
-                <AccordionContent className="text-sm text-slate-500 pb-4 leading-relaxed">{item.a}</AccordionContent>
+                <AccordionTrigger className="text-sm font-medium text-slate-800 hover:text-emerald-700 hover:no-underline py-4">{t(item.qKey)}</AccordionTrigger>
+                <AccordionContent className="text-sm text-slate-500 pb-4 leading-relaxed">{t(item.aKey)}</AccordionContent>
               </AccordionItem>
             ))}
           </Accordion>

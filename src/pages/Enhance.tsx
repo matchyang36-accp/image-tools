@@ -11,14 +11,15 @@ import {
   Upload, Download, RefreshCw, ImagePlus, ClipboardPaste,
   Sparkles, Check, Loader2, AlertCircle, Lock, HelpCircle,
 } from 'lucide-react'
+import { useI18n } from '@/i18n'
 
 const FAQ_ITEMS = [
-  { q: '图片变清晰是怎么实现的？', a: '通过 AI 智能增强 + 锐化算法，提升图片细节和清晰度，同时自动优化亮度和对比度，让模糊照片焕然一新。' },
-  { q: '支持哪些图片格式？', a: '支持 JPG、JPEG、PNG、WebP 格式，输出统一为高质量 PNG。' },
-  { q: '图片会上传到服务器吗？', a: '完全不会。所有处理都在浏览器本地完成，图片数据不会离开你的设备。' },
-  { q: '处理大图会卡吗？', a: '对于 4000px 以上的超大图，处理时间较长且可能受浏览器内存限制。建议先用系统工具调整尺寸。' },
-  { q: '增强后画质会降低吗？', a: '输出保持原始分辨率，锐化会增强细节但不会引入噪点。适度调节效果更自然。' },
-  { q: '能批量处理吗？', a: '批量处理功能即将上线，敬请期待。' },
+  { qKey: 'faq.en.1q', aKey: 'faq.en.1a' },
+  { qKey: 'faq.en.2q', aKey: 'faq.en.2a' },
+  { qKey: 'faq.en.3q', aKey: 'faq.en.3a' },
+  { qKey: 'faq.en.4q', aKey: 'faq.en.4a' },
+  { qKey: 'faq.en.5q', aKey: 'faq.en.5a' },
+  { qKey: 'faq.en.6q', aKey: 'faq.en.6a' },
 ]
 
 type ProcessState = 'idle' | 'processing' | 'done' | 'error'
@@ -93,6 +94,7 @@ function applyUnsharpMask(
 }
 
 export function Enhance() {
+  const { t } = useI18n()
   const [state, setState] = useState<ProcessState>('idle')
   const [progress, setProgress] = useState(0)
   const [errorMsg, setErrorMsg] = useState('')
@@ -187,19 +189,20 @@ export function Enhance() {
         setState('done')
       }, 100)
     }
-    img.onerror = () => { setErrorMsg('图片加载失败'); setState('error') }
+    img.onerror = () => { setErrorMsg(t('rb.error')); setState('error') }
     img.src = url
-  }, [sharpness, brightness, contrast])
+  }, [sharpness, brightness, contrast, t])
 
   // Re-process when sliders change
   const reEnhance = useCallback(() => {
-    if (!imageDataRef.current || !originalSrc) return
+    const idata = imageDataRef.current
+    if (!idata || !originalSrc) return
     setState('processing'); setProgress(50)
     const canvas = document.createElement('canvas')
-    canvas.width = imageDataRef.current.width; canvas.height = imageDataRef.current.height
+    canvas.width = idata.width; canvas.height = idata.height
     const ctx = canvas.getContext('2d')!
     setTimeout(() => {
-      const enhanced = applyUnsharpMask(imageDataRef.current, sharpness, brightness, contrast)
+      const enhanced = applyUnsharpMask(idata, sharpness, brightness, contrast)
       ctx.putImageData(enhanced, 0, 0)
       setResultSrc(canvas.toDataURL('image/png'))
       setProgress(100); setState('done')
@@ -208,8 +211,8 @@ export function Enhance() {
 
   useEffect(() => {
     if (state === 'done' && originalSrc) {
-      const t = setTimeout(() => reEnhance(), 300)
-      return () => clearTimeout(t)
+      const tm = setTimeout(() => reEnhance(), 300)
+      return () => clearTimeout(tm)
     }
   }, [sharpness, brightness, contrast]) // eslint-disable-line
 
@@ -252,10 +255,10 @@ export function Enhance() {
     <div className="py-8 px-4">
       <div className="mx-auto max-w-4xl">
         <div className="text-center mb-8">
-          <Badge variant="secondary" className="mb-3"><Sparkles className="w-3 h-3 mr-1" />图片变清晰</Badge>
-          <h1 className="text-3xl font-bold text-slate-900">AI 智能增强，让模糊照片变清晰</h1>
-          <p className="mt-2 text-slate-500">提升分辨率，修复模糊/噪点/压缩痕迹，还原高清画质</p>
-          <div className="mt-2 inline-flex items-center gap-1 text-xs text-green-600"><Check className="w-3 h-3" />100% 免费 · 本地处理 · 无需注册</div>
+          <Badge variant="secondary" className="mb-3"><Sparkles className="w-3 h-3 mr-1" />{t('en.badge')}</Badge>
+          <h1 className="text-3xl font-bold text-slate-900">{t('en.title')}</h1>
+          <p className="mt-2 text-slate-500">{t('en.subtitle')}</p>
+          <div className="mt-2 inline-flex items-center gap-1 text-xs text-green-600"><Check className="w-3 h-3" />{t('en.freeTag')}</div>
         </div>
 
         {state === 'idle' && (
@@ -263,14 +266,14 @@ export function Enhance() {
             onDragOver={(e) => e.preventDefault()} onDrop={handleDrop} onClick={() => fileInputRef.current?.click()}>
             <CardContent className="flex flex-col items-center justify-center py-16">
               <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center mb-4"><Upload className="w-8 h-8 text-amber-500" /></div>
-              <h3 className="text-lg font-medium text-slate-700 mb-1">上传图片</h3>
-              <p className="text-sm text-slate-400 mb-4">拖拽文件到此处，或点击上传 / Ctrl+V 粘贴</p>
+              <h3 className="text-lg font-medium text-slate-700 mb-1">{t('upload.title')}</h3>
+              <p className="text-sm text-slate-400 mb-4">{t('upload.desc')}</p>
               <div className="flex items-center gap-3 text-xs text-slate-400">
-                <span className="flex items-center gap-1"><ImagePlus className="w-3 h-3" /> JPG / PNG / WebP</span>
-                <span className="flex items-center gap-1"><ClipboardPaste className="w-3 h-3" /> 支持粘贴</span>
+                <span className="flex items-center gap-1"><ImagePlus className="w-3 h-3" /> {t('upload.fmt')}</span>
+                <span className="flex items-center gap-1"><ClipboardPaste className="w-3 h-3" /> {t('upload.paste')}</span>
               </div>
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }} />
-              <div className="mt-4 flex items-center gap-1.5 text-xs text-slate-400 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100"><Lock className="w-3 h-3 text-green-500" />图片仅在本地处理，不上传服务器</div>
+              <div className="mt-4 flex items-center gap-1.5 text-xs text-slate-400 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100"><Lock className="w-3 h-3 text-green-500" />{t('upload.privacyShort')}</div>
             </CardContent>
           </Card>
         )}
@@ -278,17 +281,17 @@ export function Enhance() {
         {state === 'processing' && (
           <Card><CardContent className="py-12"><div className="flex flex-col items-center">
             <div className="relative mb-4"><Loader2 className="w-10 h-10 text-amber-500 animate-spin" /><Sparkles className="w-5 h-5 text-amber-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" /></div>
-            <h3 className="font-medium text-slate-700">正在增强图片...</h3>
-            <p className="text-sm text-slate-400 mt-1">正在应用 AI 锐化和画质增强</p>
+            <h3 className="font-medium text-slate-700">{t('en.processing')}</h3>
+            <p className="text-sm text-slate-400 mt-1">{t('en.processingDesc')}</p>
             <div className="w-64 mt-4"><Progress value={progress} className="h-1.5" /></div>
           </div></CardContent></Card>
         )}
 
         {state === 'error' && (
           <Card className="border-red-100"><CardContent className="py-10"><div className="flex flex-col items-center text-center">
-            <AlertCircle className="w-10 h-10 text-red-400 mb-3" /><h3 className="font-medium text-slate-700 mb-1">处理失败</h3>
+            <AlertCircle className="w-10 h-10 text-red-400 mb-3" /><h3 className="font-medium text-slate-700 mb-1">{t('rb.error')}</h3>
             <p className="text-sm text-slate-400 mb-4">{errorMsg}</p>
-            <Button variant="outline" onClick={handleReset}><RefreshCw className="w-4 h-4 mr-2" />重试</Button>
+            <Button variant="outline" onClick={handleReset}><RefreshCw className="w-4 h-4 mr-2" />{t('rb.retry')}</Button>
           </div></CardContent></Card>
         )}
 
@@ -297,35 +300,35 @@ export function Enhance() {
             {/* Parameter sliders */}
             <Card><CardContent className="p-4 space-y-4">
               <div>
-                <div className="flex items-center justify-between mb-1.5"><span className="text-xs font-medium text-slate-600">锐化强度</span><span className="text-xs text-slate-400">{sharpness.toFixed(1)}</span></div>
+                <div className="flex items-center justify-between mb-1.5"><span className="text-xs font-medium text-slate-600">{t('en.sharpness')}</span><span className="text-xs text-slate-400">{sharpness.toFixed(1)}</span></div>
                 <Slider value={[sharpness]} onValueChange={([v]) => setSharpness(v)} min={0} max={3} step={0.1} className="w-full" />
               </div>
               <div>
-                <div className="flex items-center justify-between mb-1.5"><span className="text-xs font-medium text-slate-600">亮度</span><span className="text-xs text-slate-400">{brightness > 0 ? '+' : ''}{brightness}</span></div>
+                <div className="flex items-center justify-between mb-1.5"><span className="text-xs font-medium text-slate-600">{t('en.brightness')}</span><span className="text-xs text-slate-400">{brightness > 0 ? '+' : ''}{brightness}</span></div>
                 <Slider value={[brightness]} onValueChange={([v]) => setBrightness(v)} min={-50} max={50} step={1} className="w-full" />
               </div>
               <div>
-                <div className="flex items-center justify-between mb-1.5"><span className="text-xs font-medium text-slate-600">对比度</span><span className="text-xs text-slate-400">{contrast > 0 ? '+' : ''}{contrast}</span></div>
+                <div className="flex items-center justify-between mb-1.5"><span className="text-xs font-medium text-slate-600">{t('en.contrast')}</span><span className="text-xs text-slate-400">{contrast > 0 ? '+' : ''}{contrast}</span></div>
                 <Slider value={[contrast]} onValueChange={([v]) => setContrast(v)} min={-100} max={100} step={1} className="w-full" />
               </div>
-              <Button variant="outline" size="sm" onClick={() => { setSharpness(1.5); setBrightness(0); setContrast(10) }} className="text-xs">恢复默认参数</Button>
+              <Button variant="outline" size="sm" onClick={() => { setSharpness(1.5); setBrightness(0); setContrast(10) }} className="text-xs">{t('en.resetParams')}</Button>
             </CardContent></Card>
 
             <Card><CardContent className="p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Badge className="bg-green-50 text-green-700 border border-green-200"><Check className="w-3 h-3 mr-1" />处理完成</Badge>
+                  <Badge className="bg-green-50 text-green-700 border border-green-200"><Check className="w-3 h-3 mr-1" />{t('rb.done')}</Badge>
                   <span className="text-xs text-slate-400 truncate max-w-[200px]">{fileName}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="flex items-stretch bg-white rounded-lg border border-slate-200 overflow-hidden">
-                    <button onClick={() => zoomBy(-ZOOM_STEP)} disabled={zoom <= ZOOM_MIN} className="w-8 h-8 flex items-center justify-center text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-30 border-r border-slate-200" title="缩小">−</button>
+                    <button onClick={() => zoomBy(-ZOOM_STEP)} disabled={zoom <= ZOOM_MIN} className="w-8 h-8 flex items-center justify-center text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-30 border-r border-slate-200" title={t('rb.zoomOut')}>−</button>
                     <span className="w-12 h-8 flex items-center justify-center text-xs text-slate-600 bg-slate-50 border-r border-slate-200 select-none">{Math.round(zoom * 100)}%</span>
-                    <button onClick={() => zoomBy(ZOOM_STEP)} disabled={zoom >= ZOOM_MAX} className="w-8 h-8 flex items-center justify-center text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-30 border-r border-slate-200" title="放大">+</button>
-                    <button onClick={fitToCanvas} className="w-8 h-8 flex items-center justify-center text-sm text-slate-500 hover:bg-slate-50" title="适应画布">⊡</button>
+                    <button onClick={() => zoomBy(ZOOM_STEP)} disabled={zoom >= ZOOM_MAX} className="w-8 h-8 flex items-center justify-center text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-30 border-r border-slate-200" title={t('rb.zoomIn')}>+</button>
+                    <button onClick={fitToCanvas} className="w-8 h-8 flex items-center justify-center text-sm text-slate-500 hover:bg-slate-50 transition-colors" title={t('rb.fit')}>⊡</button>
                   </div>
                   <div className="flex bg-slate-100 rounded-lg p-0.5">
-                    {([{ k: 'result', l: '增强后' }, { k: 'original', l: '原图' }, { k: 'split', l: '对比' }] as const).map((o) => (
+                    {([{ k: 'result', l: t('en.modeEnhanced') }, { k: 'original', l: t('en.modeOriginal') }, { k: 'split', l: t('en.modeCompare') }] as const).map((o) => (
                       <button key={o.k} onClick={() => setCompareMode(o.k)} className={`px-3 py-1 text-xs rounded-md transition-colors ${compareMode === o.k ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>{o.l}</button>
                     ))}
                   </div>
@@ -343,10 +346,10 @@ export function Enhance() {
                     onTouchStart={(e) => { if (e.touches[0]) { startDrag(); handleSliderMove(e.touches[0].clientX) } }}>
                     <div className="absolute inset-0" style={{ transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`, transformOrigin: 'center center', transition: 'transform 0.2s ease-out', willChange: 'transform' }}>
                       <img src={resultSrc} alt="Enhanced" className="absolute inset-0 w-full h-full object-contain" draggable={false} />
-                      <div className="absolute top-2 right-2 bg-amber-600/80 text-white text-xs px-2 py-0.5 rounded">增强后</div>
+                      <div className="absolute top-2 right-2 bg-amber-600/80 text-white text-xs px-2 py-0.5 rounded">{t('en.overlayEnhanced')}</div>
                       <div className="absolute inset-0 overflow-hidden" style={{ clipPath: `inset(0 ${100 - sliderPos}% 0 0)` }}>
                         <img src={originalSrc} alt="Original" className="w-full h-full object-contain" draggable={false} />
-                        <div className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded">原图</div>
+                        <div className="absolute top-2 left-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded">{t('en.overlayOriginal')}</div>
                       </div>
                     </div>
                     <div className="absolute top-0 bottom-0 w-1 bg-white shadow-lg pointer-events-none z-10" style={{ left: `${sliderPos}%`, transform: 'translateX(-50%)' }} />
@@ -359,25 +362,25 @@ export function Enhance() {
                     <img src={compareMode === 'original' ? originalSrc : resultSrc} alt="Preview" className="max-h-[400px] object-contain pointer-events-none" draggable={false} />
                   </div>
                 )}
-                {zoom > 1 && <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/55 text-white/90 text-xs px-2.5 py-1 rounded-full pointer-events-none z-20">双击适应画布 · 拖拽平移</div>}
+                {zoom > 1 && <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/55 text-white/90 text-xs px-2.5 py-1 rounded-full pointer-events-none z-20">{t('rb.zoomHint')}</div>}
               </div>
             </CardContent></Card>
 
             <div className="flex items-center justify-center gap-3">
-              <Button onClick={handleDownload} className="gap-2 bg-amber-600 hover:bg-amber-700"><Download className="w-4 h-4" />下载增强图片</Button>
-              <Button variant="outline" onClick={handleReset} className="gap-2"><RefreshCw className="w-4 h-4" />重新上传</Button>
+              <Button onClick={handleDownload} className="gap-2 bg-amber-600 hover:bg-amber-700"><Download className="w-4 h-4" />{t('en.download')}</Button>
+              <Button variant="outline" onClick={handleReset} className="gap-2"><RefreshCw className="w-4 h-4" />{t('rb.reupload')}</Button>
             </div>
-            <p className="text-center text-xs text-slate-400">拖动上方滑块可实时调节增强效果，满意后下载</p>
+            <p className="text-center text-xs text-slate-400">{t('en.tip')}</p>
           </div>
         )}
 
         <div className="mt-10">
-          <div className="flex items-center gap-2 mb-4"><HelpCircle className="w-4 h-4 text-amber-500" /><h2 className="font-semibold text-slate-800">常见问题</h2></div>
+          <div className="flex items-center gap-2 mb-4"><HelpCircle className="w-4 h-4 text-amber-500" /><h2 className="font-semibold text-slate-800">{t('en.faqTitle')}</h2></div>
           <Accordion type="single" collapsible className="w-full space-y-2">
             {FAQ_ITEMS.map((item, i) => (
               <AccordionItem key={i} value={`faq-${i}`} className="border border-slate-200 rounded-xl px-4 bg-white shadow-sm">
-                <AccordionTrigger className="text-sm font-medium text-slate-800 hover:text-amber-700 hover:no-underline py-4">{item.q}</AccordionTrigger>
-                <AccordionContent className="text-sm text-slate-500 pb-4 leading-relaxed">{item.a}</AccordionContent>
+                <AccordionTrigger className="text-sm font-medium text-slate-800 hover:text-amber-700 hover:no-underline py-4">{t(item.qKey)}</AccordionTrigger>
+                <AccordionContent className="text-sm text-slate-500 pb-4 leading-relaxed">{t(item.aKey)}</AccordionContent>
               </AccordionItem>
             ))}
           </Accordion>

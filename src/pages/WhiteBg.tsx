@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { Slider } from '@/components/ui/slider'
 import {
   Accordion,
   AccordionContent,
@@ -13,17 +12,18 @@ import {
 import {
   Upload, Download, RefreshCw, ImagePlus,
   ClipboardPaste, Sparkles, Check,
-  Loader2, AlertCircle, Lock, HelpCircle, Image,
+  Loader2, AlertCircle, Lock, HelpCircle, Image as ImageIcon,
 } from 'lucide-react'
 import { removeBackground } from '@imgly/background-removal'
+import { useI18n } from '@/i18n'
 
 const FAQ_ITEMS = [
-  { q: '白底图和普通抠图有什么区别？', a: '普通抠图输出透明背景 PNG，白底图则是在抠图后自动合成纯白背景，适合直接用于淘宝/京东等电商平台。' },
-  { q: '支持哪些图片格式？', a: '支持 JPG、JPEG、PNG、WebP 格式。处理后可下载 JPG（白底）或 PNG（透明底）。' },
-  { q: '图片会上传到服务器吗？', a: '完全不会。所有处理都在你的浏览器本地完成，图片数据不会离开你的设备。' },
-  { q: '白底图尺寸和质量如何？', a: '输出图片保持原始分辨率，不会压缩画质。如果你需要调整尺寸，可以下载后用系统自带工具裁剪。' },
-  { q: '抠图效果不好怎么办？', a: '建议使用背景与主体色差较大的照片。后续将上线「手动精修」功能，支持手动涂抹修复边缘。' },
-  { q: '支持批量处理吗？', a: '批量处理功能即将上线，支持一次上传多张图片同时处理。' },
+  { qKey: 'faq.wb.1q', aKey: 'faq.wb.1a' },
+  { qKey: 'faq.wb.2q', aKey: 'faq.wb.2a' },
+  { qKey: 'faq.wb.3q', aKey: 'faq.wb.3a' },
+  { qKey: 'faq.wb.4q', aKey: 'faq.wb.4a' },
+  { qKey: 'faq.wb.5q', aKey: 'faq.wb.5a' },
+  { qKey: 'faq.wb.6q', aKey: 'faq.wb.6a' },
 ]
 
 type ProcessState = 'idle' | 'processing' | 'compositing' | 'done' | 'error'
@@ -40,6 +40,7 @@ const ZOOM_MAX = 8
 const ZOOM_STEP = 0.25
 
 export function WhiteBg() {
+  const { t } = useI18n()
   const [state, setState] = useState<ProcessState>('idle')
   const [progress, setProgress] = useState(0)
   const [result, setResult] = useState<ProcessResult | null>(null)
@@ -129,7 +130,7 @@ export function WhiteBg() {
   }, [state])
   useEffect(() => { document.addEventListener('paste', handlePasteCallback); return () => document.removeEventListener('paste', handlePasteCallback) }, [handlePasteCallback])
 
-  const compositeWhiteBg = useCallback(async (blob: Blob, file: File): Promise<Blob> => {
+  const compositeWhiteBg = useCallback(async (blob: Blob): Promise<Blob> => {
     const img = new Image()
     const url = URL.createObjectURL(blob)
     await new Promise<void>((resolve) => { img.onload = () => resolve(); img.src = url })
@@ -163,7 +164,7 @@ export function WhiteBg() {
       setProgress(90)
       setState('compositing')
 
-      const whiteBgBlob = await compositeWhiteBg(blob, file)
+      const whiteBgBlob = await compositeWhiteBg(blob)
       const resultUrl = URL.createObjectURL(whiteBgBlob)
 
       setProgress(100)
@@ -171,10 +172,10 @@ export function WhiteBg() {
       setState('done')
     } catch (err: unknown) {
       clearInterval(progressInterval)
-      setErrorMsg(err instanceof Error ? err.message : '处理失败，请重试')
+      setErrorMsg(err instanceof Error ? err.message : t('rb.error'))
       setState('error')
     }
-  }, [compositeWhiteBg])
+  }, [compositeWhiteBg, t])
 
   const handleFile = useCallback((file: File) => {
     if (!file.type.startsWith('image/')) return
@@ -226,10 +227,10 @@ export function WhiteBg() {
     <div className="py-8 px-4">
       <div className="mx-auto max-w-4xl">
         <div className="text-center mb-8">
-          <Badge variant="secondary" className="mb-3"><Image className="w-3 h-3 mr-1" />AI 白底图</Badge>
-          <h1 className="text-3xl font-bold text-slate-900">免费在线生成电商白底图</h1>
-          <p className="mt-2 text-slate-500">上传图片，AI 自动抠图并合成纯白背景，适配淘宝/京东/拼多多</p>
-          <div className="mt-2 inline-flex items-center gap-1 text-xs text-green-600"><Check className="w-3 h-3" />100% 免费 · 本地 AI 处理 · 无需注册</div>
+          <Badge variant="secondary" className="mb-3"><ImageIcon className="w-3 h-3 mr-1" />{t('wb.badge')}</Badge>
+          <h1 className="text-3xl font-bold text-slate-900">{t('wb.title')}</h1>
+          <p className="mt-2 text-slate-500">{t('wb.subtitle')}</p>
+          <div className="mt-2 inline-flex items-center gap-1 text-xs text-green-600"><Check className="w-3 h-3" />{t('rb.freeTag')}</div>
         </div>
 
         {state === 'idle' && (
@@ -237,16 +238,16 @@ export function WhiteBg() {
             onDragOver={(e) => e.preventDefault()} onDrop={handleDrop} onClick={() => fileInputRef.current?.click()}>
             <CardContent className="flex flex-col items-center justify-center py-16">
               <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mb-4"><Upload className="w-8 h-8 text-blue-500" /></div>
-              <h3 className="text-lg font-medium text-slate-700 mb-1">上传图片</h3>
-              <p className="text-sm text-slate-400 mb-4">拖拽文件到此处，或点击上传 / Ctrl+V 粘贴</p>
+              <h3 className="text-lg font-medium text-slate-700 mb-1">{t('upload.title')}</h3>
+              <p className="text-sm text-slate-400 mb-4">{t('upload.desc')}</p>
               <div className="flex items-center gap-3 text-xs text-slate-400">
-                <span className="flex items-center gap-1"><ImagePlus className="w-3 h-3" /> JPG / PNG / WebP</span>
-                <span className="flex items-center gap-1"><ClipboardPaste className="w-3 h-3" /> 支持粘贴</span>
+                <span className="flex items-center gap-1"><ImagePlus className="w-3 h-3" /> {t('upload.fmt')}</span>
+                <span className="flex items-center gap-1"><ClipboardPaste className="w-3 h-3" /> {t('upload.paste')}</span>
               </div>
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }} />
               <div className="mt-4 flex items-center gap-1.5 text-xs text-slate-400 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100">
-                <Lock className="w-3 h-3 text-green-500 flex-shrink-0" />图片仅在本地处理，不上传服务器
+                <Lock className="w-3 h-3 text-green-500 flex-shrink-0" />{t('upload.privacyShort')}
               </div>
             </CardContent>
           </Card>
@@ -255,8 +256,8 @@ export function WhiteBg() {
         {(state === 'processing' || state === 'compositing') && result && (
           <Card><CardContent className="py-12"><div className="flex flex-col items-center">
             <div className="relative mb-4"><Loader2 className="w-10 h-10 text-blue-500 animate-spin" /><Sparkles className="w-5 h-5 text-blue-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" /></div>
-            <h3 className="font-medium text-slate-700">{state === 'processing' ? 'AI 正在抠图中...' : '正在合成白底...'}</h3>
-            <p className="text-sm text-slate-400 mt-1">{state === 'processing' ? (progress < 30 ? '首次使用需加载 AI 模型（约40MB），之后会缓存' : '智能识别并移除背景') : '将抠图结果合成到白色背景上'}</p>
+            <h3 className="font-medium text-slate-700">{state === 'processing' ? t('wb.processing') : t('wb.compositing')}</h3>
+            <p className="text-sm text-slate-400 mt-1">{state === 'processing' ? (progress < 30 ? t('wb.loadingModel') : t('wb.removing')) : t('wb.compositingDesc')}</p>
             <div className="w-64 mt-4"><Progress value={progress} className="h-1.5" /></div>
             <p className="text-xs text-slate-400 mt-2">{Math.round(progress)}%</p>
           </div></CardContent></Card>
@@ -264,9 +265,9 @@ export function WhiteBg() {
 
         {state === 'error' && (
           <Card className="border-red-100"><CardContent className="py-10"><div className="flex flex-col items-center text-center">
-            <AlertCircle className="w-10 h-10 text-red-400 mb-3" /><h3 className="font-medium text-slate-700 mb-1">处理失败</h3>
+            <AlertCircle className="w-10 h-10 text-red-400 mb-3" /><h3 className="font-medium text-slate-700 mb-1">{t('rb.error')}</h3>
             <p className="text-sm text-slate-400 mb-4">{errorMsg}</p>
-            <Button variant="outline" onClick={handleReset}><RefreshCw className="w-4 h-4 mr-2" />重试</Button>
+            <Button variant="outline" onClick={handleReset}><RefreshCw className="w-4 h-4 mr-2" />{t('rb.retry')}</Button>
           </div></CardContent></Card>
         )}
 
@@ -275,7 +276,7 @@ export function WhiteBg() {
             {/* Background color picker */}
             <Card><CardContent className="p-3">
               <div className="flex items-center gap-3">
-                <span className="text-xs text-slate-500">背景颜色：</span>
+                <span className="text-xs text-slate-500">{t('wb.bgColor')}</span>
                 <div className="flex gap-1.5">
                   {bgColors.map((c) => (
                     <button key={c} onClick={() => setBgColor(c)}
@@ -294,18 +295,18 @@ export function WhiteBg() {
             <Card><CardContent className="p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Badge className="bg-green-50 text-green-700 border border-green-200 hover:bg-green-50"><Check className="w-3 h-3 mr-1" />处理完成</Badge>
+                  <Badge className="bg-green-50 text-green-700 border border-green-200 hover:bg-green-50"><Check className="w-3 h-3 mr-1" />{t('rb.done')}</Badge>
                   <span className="text-xs text-slate-400 truncate max-w-[200px]">{result.fileName}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="flex items-stretch bg-white rounded-lg border border-slate-200 overflow-hidden">
-                    <button onClick={() => zoomBy(-ZOOM_STEP)} disabled={zoom <= ZOOM_MIN} className="w-8 h-8 flex items-center justify-center text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-30 border-r border-slate-200" title="缩小">−</button>
+                    <button onClick={() => zoomBy(-ZOOM_STEP)} disabled={zoom <= ZOOM_MIN} className="w-8 h-8 flex items-center justify-center text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-30 border-r border-slate-200" title={t('rb.zoomOut')}>−</button>
                     <span className="w-12 h-8 flex items-center justify-center text-xs text-slate-600 bg-slate-50 border-r border-slate-200 select-none">{Math.round(zoom * 100)}%</span>
-                    <button onClick={() => zoomBy(ZOOM_STEP)} disabled={zoom >= ZOOM_MAX} className="w-8 h-8 flex items-center justify-center text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-30 border-r border-slate-200" title="放大">+</button>
-                    <button onClick={fitToCanvas} className="w-8 h-8 flex items-center justify-center text-sm text-slate-500 hover:bg-slate-50 transition-colors" title="适应画布">⊡</button>
+                    <button onClick={() => zoomBy(ZOOM_STEP)} disabled={zoom >= ZOOM_MAX} className="w-8 h-8 flex items-center justify-center text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-30 border-r border-slate-200" title={t('rb.zoomIn')}>+</button>
+                    <button onClick={fitToCanvas} className="w-8 h-8 flex items-center justify-center text-sm text-slate-500 hover:bg-slate-50 transition-colors" title={t('rb.fit')}>⊡</button>
                   </div>
                   <div className="flex bg-slate-100 rounded-lg p-0.5">
-                    {([{ key: 'result', label: '白底图' }, { key: 'original', label: '原图' }] as const).map((opt) => (
+                    {([{ key: 'result', label: t('wb.modeWhite') }, { key: 'original', label: t('wb.modeOriginal') }] as const).map((opt) => (
                       <button key={opt.key} onClick={() => setCompareMode(opt.key)}
                         className={`px-3 py-1 text-xs rounded-md transition-colors ${compareMode === opt.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>{opt.label}</button>
                     ))}
@@ -330,27 +331,27 @@ export function WhiteBg() {
                   )}
                 </div>
                 {zoom > 1 && (
-                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/55 text-white/90 text-xs px-2.5 py-1 rounded-full pointer-events-none z-20 backdrop-blur-sm">双击适应画布 · 拖拽平移</div>
+                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/55 text-white/90 text-xs px-2.5 py-1 rounded-full pointer-events-none z-20 backdrop-blur-sm">{t('rb.zoomHint')}</div>
                 )}
               </div>
             </CardContent></Card>
 
             <div className="flex items-center justify-center gap-3">
-              <Button onClick={() => handleDownload('jpg')} className="gap-2 bg-blue-600 hover:bg-blue-700"><Download className="w-4 h-4" />下载白底 JPG</Button>
-              <Button onClick={() => handleDownload('png')} variant="outline" className="gap-2"><Download className="w-4 h-4" />下载透明 PNG</Button>
-              <Button variant="outline" onClick={handleReset} className="gap-2"><RefreshCw className="w-4 h-4" />重新上传</Button>
+              <Button onClick={() => handleDownload('jpg')} className="gap-2 bg-blue-600 hover:bg-blue-700"><Download className="w-4 h-4" />{t('wb.downloadJpg')}</Button>
+              <Button onClick={() => handleDownload('png')} variant="outline" className="gap-2"><Download className="w-4 h-4" />{t('wb.downloadPng')}</Button>
+              <Button variant="outline" onClick={handleReset} className="gap-2"><RefreshCw className="w-4 h-4" />{t('rb.reupload')}</Button>
             </div>
-            <p className="text-center text-xs text-slate-400">推荐下载 JPG 格式直接用于电商上架；PNG 格式保留透明背景可二次编辑</p>
+            <p className="text-center text-xs text-slate-400">{t('wb.tip')}</p>
           </div>
         )}
 
         <div className="mt-10">
-          <div className="flex items-center gap-2 mb-4"><HelpCircle className="w-4 h-4 text-blue-500" /><h2 className="font-semibold text-slate-800">常见问题</h2></div>
+          <div className="flex items-center gap-2 mb-4"><HelpCircle className="w-4 h-4 text-blue-500" /><h2 className="font-semibold text-slate-800">{t('wb.faqTitle')}</h2></div>
           <Accordion type="single" collapsible className="w-full space-y-2">
             {FAQ_ITEMS.map((item, i) => (
               <AccordionItem key={i} value={`faq-${i}`} className="border border-slate-200 rounded-xl px-4 bg-white shadow-sm">
-                <AccordionTrigger className="text-sm font-medium text-slate-800 hover:text-blue-700 hover:no-underline py-4">{item.q}</AccordionTrigger>
-                <AccordionContent className="text-sm text-slate-500 pb-4 leading-relaxed">{item.a}</AccordionContent>
+                <AccordionTrigger className="text-sm font-medium text-slate-800 hover:text-blue-700 hover:no-underline py-4">{t(item.qKey)}</AccordionTrigger>
+                <AccordionContent className="text-sm text-slate-500 pb-4 leading-relaxed">{t(item.aKey)}</AccordionContent>
               </AccordionItem>
             ))}
           </Accordion>

@@ -20,45 +20,47 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Globe } from 'lucide-react'
 import {
   Image, MessageSquare, Sparkles, ChevronDown,
-  Scissors, Zap, Star, Clock, Gift, Pen,
+  Scissors, Zap, Star, Clock, Gift, Pen, Check as CheckIcon,
 } from 'lucide-react'
+import { useI18n } from '@/i18n'
 
 const allTools = [
   {
     icon: Scissors,
-    label: 'AI 智能抠图',
+    labelKey: 'tool.rb.title',
     href: '/remove-background',
-    badge: '热门',
+    badgeKey: 'tool.rb.badgeHot',
     badgeClass: 'bg-red-50 text-red-600 border-red-200',
   },
   {
     icon: Image,
-    label: 'AI 白底图',
+    labelKey: 'tool.wb.title',
     href: '/white-background',
-    badge: '可用',
+    badgeKey: 'tool.rb.badgeNew',
     badgeClass: 'bg-green-50 text-green-700 border-green-200',
   },
   {
     icon: Sparkles,
-    label: '图片变清晰',
+    labelKey: 'tool.en.title',
     href: '/enhance',
-    badge: '可用',
+    badgeKey: 'tool.rb.badgeNew',
     badgeClass: 'bg-green-50 text-green-700 border-green-200',
   },
   {
     icon: Zap,
-    label: '去水印',
+    labelKey: 'tool.wm.title',
     href: '/remove-watermark',
-    badge: '可用',
+    badgeKey: 'tool.rb.badgeNew',
     badgeClass: 'bg-green-50 text-green-700 border-green-200',
   },
   {
     icon: Pen,
-    label: '手动精修',
+    labelKey: 'tool.rt.title',
     href: '/retouch',
-    badge: '可用',
+    badgeKey: 'tool.rb.badgeNew',
     badgeClass: 'bg-green-50 text-green-700 border-green-200',
   },
 ]
@@ -69,6 +71,7 @@ const usedToday = 2 // TODO: 从 localStorage 或后端读取
 
 export function Header() {
   const location = useLocation()
+  const { t, lang, setLang, languages } = useI18n()
   const [feedback, setFeedback] = useState('')
   const [open, setOpen] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -111,11 +114,13 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 border-b bg-white/90 backdrop-blur-sm">
       <div className="mx-auto max-w-6xl px-4 h-16 flex items-center justify-between">
-        {/* Logo - 放大 */}
+        {/* Logo */}
         <Link to="/" className="flex items-center gap-2.5 font-extrabold text-xl text-slate-900 tracking-tight">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-md shadow-violet-200">
-            <Sparkles className="w-5 h-5 text-white" />
-          </div>
+          <img
+            src="/logo.png"
+            alt="改图工具箱"
+            className="h-10 w-auto object-contain"
+          />
           改图工具箱
         </Link>
 
@@ -126,7 +131,7 @@ export function Header() {
               variant={location.pathname === '/' ? 'secondary' : 'ghost'}
               size="sm"
             >
-              首页
+              {t('common.home')}
             </Button>
           </Link>
 
@@ -139,23 +144,23 @@ export function Header() {
                 className="gap-1"
               >
                 <Image className="w-4 h-4" />
-                全部工具
+                {t('common.allTools')}
                 <ChevronDown className="w-3 h-3 opacity-50" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-52">
-              <DropdownMenuLabel className="text-xs text-slate-400 font-normal">图片处理工具</DropdownMenuLabel>
+              <DropdownMenuLabel className="text-xs text-slate-400 font-normal">{t('common.allTools')}</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {allTools.map((t) => (
-                <DropdownMenuItem key={t.label} asChild>
+              {allTools.map((tool) => (
+                <DropdownMenuItem key={tool.labelKey} asChild>
                   <Link
-                    to={t.href}
+                    to={tool.href}
                     className="flex items-center gap-2 cursor-pointer"
                   >
-                    <t.icon className="w-4 h-4 text-slate-500 flex-shrink-0" />
-                    <span className="flex-1">{t.label}</span>
-                    <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 h-4 border ${t.badgeClass}`}>
-                      {t.badge}
+                    <tool.icon className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                    <span className="flex-1">{t(tool.labelKey)}</span>
+                    <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 h-4 border ${tool.badgeClass}`}>
+                      {t(tool.badgeKey)}
                     </Badge>
                   </Link>
                 </DropdownMenuItem>
@@ -168,16 +173,16 @@ export function Header() {
             variant="ghost"
             size="sm"
             className="text-slate-500 hover:text-slate-700 gap-1"
-            onClick={() => alert('我的作品功能即将上线！处理过的图片将会自动保存在这里。')}
+            onClick={() => alert(t('common.myWorksAlert'))}
           >
             <Clock className="w-4 h-4" />
-            <span className="hidden sm:inline">我的作品</span>
+            <span className="hidden sm:inline">{t('common.myWorks')}</span>
           </Button>
 
           {/* 每日免费次数 */}
           <div className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-md bg-violet-50 border border-violet-100 text-xs">
             <Gift className="w-3 h-3 text-violet-500" />
-            <span className="text-violet-700 font-medium">今日剩余 <strong>{remaining}</strong> 次</span>
+            <span className="text-violet-700 font-medium">{t('common.todayRemaining')} <strong>{remaining}</strong> {t('common.times')}</span>
           </div>
 
           {/* 星标评分 */}
@@ -185,25 +190,56 @@ export function Header() {
             variant="ghost"
             size="sm"
             className="hidden sm:flex items-center gap-1 text-amber-500 hover:text-amber-600 hover:bg-amber-50"
-            onClick={() => alert('感谢你的支持！')}
+            onClick={() => alert(t('common.feedback.thanks'))}
           >
             <Star className="w-4 h-4 fill-amber-400" />
             <span className="text-xs">4.9</span>
           </Button>
+
+          {/* 语言切换器 */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1 text-slate-600 hover:text-violet-600"
+                aria-label="Language"
+              >
+                <Globe className="w-4 h-4" />
+                <span className="hidden sm:inline">{languages.find((l) => l.code === lang)?.flag}</span>
+                <ChevronDown className="w-3 h-3 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuLabel className="text-xs text-slate-400 font-normal">Language / 语言</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {languages.map((l) => (
+                <DropdownMenuItem
+                  key={l.code}
+                  onClick={() => setLang(l.code)}
+                  className={`flex items-center gap-2 cursor-pointer ${l.code === lang ? 'bg-violet-50 text-violet-700' : ''}`}
+                >
+                  <span className="text-base leading-none">{l.flag}</span>
+                  <span className="flex-1">{l.label}</span>
+                  {l.code === lang && <CheckIcon className="w-3.5 h-3.5 text-violet-600" />}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* 意见反馈 */}
           <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogTrigger asChild>
               <Button variant="ghost" size="sm" className="text-slate-500 hover:text-violet-600 gap-1">
                 <MessageSquare className="w-4 h-4" />
-                <span className="hidden sm:inline">意见反馈</span>
+                <span className="hidden sm:inline">{t('common.feedback')}</span>
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>意见反馈</DialogTitle>
+                <DialogTitle>{t('feedback.title')}</DialogTitle>
                 <DialogDescription>
-                  欢迎提出你的建议、问题或想法，帮助我们做得更好。
+                  {t('feedback.desc')}
                 </DialogDescription>
               </DialogHeader>
               {submitted ? (
@@ -213,13 +249,13 @@ export function Header() {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
-                  <p className="text-sm font-medium text-slate-900">感谢你的反馈！</p>
-                  <p className="text-xs text-slate-500 mt-1">我们会认真对待每一条建议。</p>
+                  <p className="text-sm font-medium text-slate-900">{t('feedback.thanks')}</p>
+                  <p className="text-xs text-slate-500 mt-1">{t('feedback.thanksDesc')}</p>
                 </div>
               ) : (
                 <>
                   <Textarea
-                    placeholder="请描述你的意见或建议..."
+                    placeholder={t('feedback.placeholder')}
                     value={feedback}
                     onChange={(e) => setFeedback(e.target.value)}
                     rows={5}
@@ -231,7 +267,7 @@ export function Header() {
                       disabled={!feedback.trim() || sending}
                       className="bg-violet-600 hover:bg-violet-700"
                     >
-                      {sending ? '提交中...' : '提交反馈'}
+                      {sending ? t('feedback.submitting') : t('feedback.submit')}
                     </Button>
                   </DialogFooter>
                 </>
